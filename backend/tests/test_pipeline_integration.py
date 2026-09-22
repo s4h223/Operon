@@ -85,10 +85,20 @@ REDDIT_JSON = {
     }
 }
 
-GRADE_RECORDS = [
-    {"instructor": "Simpkins, Charles A", "term": "202408", "a": 130, "b": 35, "c": 10, "d": 2, "f": 1, "w": 8, "total": 186, "gpa": 3.55},
-    {"instructor": "Summet, Jennifer W", "term": "202408", "a": 40, "b": 55, "c": 45, "d": 15, "f": 10, "w": 18, "total": 183, "gpa": 2.35},
-]
+GRADE_RECORDS = {
+    "raw": [
+        {
+            "instructor_name": "Simpkins, Charles A", "Term": "Fall 2024",
+            "class_size_group": "Very Large (50 students or more)",
+            "GPA": 3.55, "A": 70, "B": 19, "C": 5, "D": 1, "F": 1, "W": 4,
+        },
+        {
+            "instructor_name": "Summet, Jennifer W", "Term": "Fall 2024",
+            "class_size_group": "Very Large (50 students or more)",
+            "GPA": 2.35, "A": 22, "B": 30, "C": 25, "D": 8, "F": 5, "W": 10,
+        },
+    ]
+}
 
 
 @pytest.fixture(autouse=True)
@@ -113,7 +123,7 @@ def client():
 def _mock_all_external_calls():
     _mock_schedule_session_and_term()
     respx.get(SEARCH_RESULTS_URL).mock(return_value=httpx.Response(200, text=_load(SCHEDULE_FIXTURE_PATH)))
-    respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/CS/1301").mock(
+    respx.get(COURSE_CRITIQUE_BASE).mock(
         return_value=httpx.Response(200, json=GRADE_RECORDS)
     )
     respx.get(DUCKDUCKGO_HTML_BASE).mock(return_value=httpx.Response(200, text=DUCKDUCKGO_HTML))
@@ -196,11 +206,19 @@ def test_full_pipeline_math1552_one_professor_multiple_sections(client):
     respx.get(SEARCH_RESULTS_URL).mock(
         return_value=httpx.Response(200, text=_load(FIXTURES_DIR + "/banner_math1552_sample.json"))
     )
-    respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/MATH/1552").mock(
-        return_value=httpx.Response(200, json=[
-            {"instructor": "Chen, Wei L", "term": "202408", "a": 60, "b": 50, "c": 20, "d": 5, "f": 3, "w": 10, "total": 138, "gpa": 3.15},
-            {"instructor": "Rodriguez, Maria S", "term": "202408", "a": 30, "b": 40, "c": 25, "d": 8, "f": 5, "w": 9, "total": 108, "gpa": 2.7},
-        ])
+    respx.get(COURSE_CRITIQUE_BASE).mock(
+        return_value=httpx.Response(200, json={"raw": [
+            {
+                "instructor_name": "Chen, Wei L", "Term": "Fall 2024",
+                "class_size_group": "Very Large (50 students or more)",
+                "GPA": 3.15, "A": 43, "B": 36, "C": 14, "D": 4, "F": 2, "W": 7,
+            },
+            {
+                "instructor_name": "Rodriguez, Maria S", "Term": "Fall 2024",
+                "class_size_group": "Very Large (50 students or more)",
+                "GPA": 2.7, "A": 28, "B": 37, "C": 23, "D": 7, "F": 5, "W": 8,
+            },
+        ]})
     )
     respx.get(DUCKDUCKGO_HTML_BASE).mock(return_value=httpx.Response(200, text="<html><body>no results</body></html>"))
     respx.get(REDDIT_SEARCH_BASE).mock(return_value=httpx.Response(200, json={"data": {"children": []}}))
@@ -230,7 +248,7 @@ def test_full_pipeline_phys2211_single_professor_no_history_no_discussion(client
     respx.get(SEARCH_RESULTS_URL).mock(
         return_value=httpx.Response(200, text=_load(FIXTURES_DIR + "/banner_phys2211_sample.json"))
     )
-    respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/PHYS/2211").mock(return_value=httpx.Response(200, json=[]))
+    respx.get(COURSE_CRITIQUE_BASE).mock(return_value=httpx.Response(200, json={"raw": []}))
     respx.get(DUCKDUCKGO_HTML_BASE).mock(return_value=httpx.Response(200, text="<html><body>no results</body></html>"))
     respx.get(REDDIT_SEARCH_BASE).mock(return_value=httpx.Response(200, json={"data": {"children": []}}))
     for page_url in PUBLIC_RECOGNITION_PAGES:
@@ -274,13 +292,21 @@ def test_full_pipeline_acct2101_historical_professor_not_in_current_schedule_is_
     respx.get(SEARCH_RESULTS_URL).mock(
         return_value=httpx.Response(200, text=_load(FIXTURES_DIR + "/banner_acct2101_sample.json"))
     )
-    respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/ACCT/2101").mock(
-        return_value=httpx.Response(200, json=[
-            {"instructor": "Nguyen, Thomas K", "term": "202408", "a": 40, "b": 30, "c": 15, "d": 3, "f": 2, "w": 5, "total": 95, "gpa": 3.3},
+    respx.get(COURSE_CRITIQUE_BASE).mock(
+        return_value=httpx.Response(200, json={"raw": [
+            {
+                "instructor_name": "Nguyen, Thomas K", "Term": "Fall 2024",
+                "class_size_group": "Mid-Size (21-30 students)",
+                "GPA": 3.3, "A": 51, "B": 30, "C": 13, "D": 3, "F": 2, "W": 5,
+            },
             # "Historical Prof" has rich grade history but does NOT appear
             # in the banner_acct2101_sample.json fixture's current sections.
-            {"instructor": "Okafor, Grace N", "term": "202108", "a": 50, "b": 30, "c": 10, "d": 2, "f": 1, "w": 4, "total": 97, "gpa": 3.5},
-        ])
+            {
+                "instructor_name": "Okafor, Grace N", "Term": "Spring 2021",
+                "class_size_group": "Mid-Size (21-30 students)",
+                "GPA": 3.5, "A": 60, "B": 25, "C": 8, "D": 2, "F": 1, "W": 4,
+            },
+        ]})
     )
     respx.get(DUCKDUCKGO_HTML_BASE).mock(return_value=httpx.Response(200, text="<html><body>no results</body></html>"))
     respx.get(REDDIT_SEARCH_BASE).mock(return_value=httpx.Response(200, json={"data": {"children": []}}))

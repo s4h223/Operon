@@ -95,11 +95,17 @@ def test_changed_response_structure_degrades_to_unavailable_not_crash():
 
 @respx.mock
 def test_grades_malformed_record_missing_instructor_is_skipped():
-    records = [
-        {"term": "202408", "a": 10, "b": 5, "c": 2, "d": 0, "f": 0, "w": 1, "total": 18},  # no instructor
-        {"instructor": "Nguyen, Thomas K", "term": "202408", "a": 40, "b": 20, "c": 10, "d": 2, "f": 1, "w": 5, "total": 78},
-    ]
-    respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/ACCT/2101").mock(return_value=httpx.Response(200, json=records))
+    records = {
+        "raw": [
+            {"Term": "Fall 2024", "class_size_group": "Small (10-20 students)", "GPA": 3.0, "A": 50, "B": 30, "C": 10, "D": 5, "F": 5, "W": 0},  # no instructor
+            {
+                "instructor_name": "Nguyen, Thomas K", "Term": "Fall 2024",
+                "class_size_group": "Large (31-49 students)",
+                "GPA": 3.3, "A": 51, "B": 26, "C": 13, "D": 3, "F": 1, "W": 6,
+            },
+        ]
+    }
+    respx.get(COURSE_CRITIQUE_BASE).mock(return_value=httpx.Response(200, json=records))
     result = grades_mod.get_grade_history("ACCT", "2101")
     assert result.status == "ok"
     assert len(result.rows) == 1
@@ -107,17 +113,42 @@ def test_grades_malformed_record_missing_instructor_is_skipped():
 
 
 @respx.mock
-def test_grades_record_with_zero_total_is_skipped():
-    records = [{"instructor": "Whitfield, Laura B", "term": "202408", "a": 0, "b": 0, "c": 0, "d": 0, "f": 0, "w": 0, "total": 0}]
-    respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/ACCT/2101").mock(return_value=httpx.Response(200, json=records))
+def test_grades_record_with_no_graded_students_is_skipped():
+    # Every student withdrew - there's no GPA to compute, so this shouldn't
+    # be silently reported as a 0.0 (an F-average class).
+    records = {
+        "raw": [{
+            "instructor_name": "Whitfield, Laura B", "Term": "Fall 2024",
+            "class_size_group": "Small (10-20 students)",
+            "A": 0, "B": 0, "C": 0, "D": 0, "F": 0, "W": 100,
+        }]
+    }
+    respx.get(COURSE_CRITIQUE_BASE).mock(return_value=httpx.Response(200, json=records))
     result = grades_mod.get_grade_history("ACCT", "2101")
     assert result.status == "unavailable"
     assert result.rows == []
 
 
 @respx.mock
-def test_grades_empty_list_response_is_unavailable_not_crash():
-    respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/PHYS/2211").mock(return_value=httpx.Response(200, json=[]))
+def test_grades_unrecognized_class_size_bucket_is_skipped():
+    # A new/renamed bucket Course Critique might introduce later shouldn't
+    # cause a guessed headcount - just skip that record.
+    records = {
+        "raw": [{
+            "instructor_name": "Whitfield, Laura B", "Term": "Fall 2024",
+            "class_size_group": "Huge (100+ students)",
+            "GPA": 3.0, "A": 50, "B": 30, "C": 10, "D": 5, "F": 5, "W": 0,
+        }]
+    }
+    respx.get(COURSE_CRITIQUE_BASE).mock(return_value=httpx.Response(200, json=records))
+    result = grades_mod.get_grade_history("ACCT", "2101")
+    assert result.status == "unavailable"
+    assert result.rows == []
+
+
+@respx.mock
+def test_grades_empty_raw_list_response_is_unavailable_not_crash():
+    respx.get(COURSE_CRITIQUE_BASE).mock(return_value=httpx.Response(200, json={"raw": []}))
     result = grades_mod.get_grade_history("PHYS", "2211")
     assert result.status == "unavailable"
     assert result.rows == []
@@ -125,7 +156,7 @@ def test_grades_empty_list_response_is_unavailable_not_crash():
 
 @respx.mock
 def test_grades_http_500_is_unavailable_not_crash():
-    respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/PHYS/2211").mock(return_value=httpx.Response(500))
+    respx.get(COURSE_CRITIQUE_BASE).mock(return_value=httpx.Response(500))
     result = grades_mod.get_grade_history("PHYS", "2211")
     assert result.status == "unavailable"
 

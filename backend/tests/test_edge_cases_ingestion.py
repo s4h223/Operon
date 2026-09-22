@@ -50,7 +50,7 @@ def test_schedule_timeout_degrades_gracefully():
 
 @respx.mock
 def test_grades_timeout_degrades_gracefully():
-    respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/CS/1301").mock(side_effect=httpx.TimeoutException("timed out"))
+    respx.get(COURSE_CRITIQUE_BASE).mock(side_effect=httpx.TimeoutException("timed out"))
     result = grades_mod.get_grade_history("CS", "1301")
     assert result.status == "unavailable"
 
@@ -135,8 +135,12 @@ def test_partial_outage_schedule_down_does_not_block_grades():
     # should not prevent grade data from being retrieved by the caller.
     _mock_session_and_term_steps()
     respx.get(f"{GT_SCHEDULE_BASE}/ssb/searchResults/searchResults").mock(return_value=httpx.Response(500))
-    respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/CS/1301").mock(
-        return_value=httpx.Response(200, json=[{"instructor": "Simpkins, Charles A", "term": "202408", "a": 10, "b": 5, "c": 1, "d": 0, "f": 0, "w": 1, "total": 17, "gpa": 3.5}])
+    respx.get(COURSE_CRITIQUE_BASE).mock(
+        return_value=httpx.Response(200, json={"raw": [{
+            "instructor_name": "Simpkins, Charles A", "Term": "Fall 2024",
+            "class_size_group": "Small (10-20 students)",
+            "GPA": 3.5, "A": 59, "B": 29, "C": 6, "D": 0, "F": 0, "W": 6,
+        }]})
     )
     schedule_result = schedule_mod.get_sections_for_course("202508", "CS", "1301")
     grade_result = grades_mod.get_grade_history("CS", "1301")

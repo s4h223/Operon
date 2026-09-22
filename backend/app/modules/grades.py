@@ -1,16 +1,19 @@
 """Historical course-specific grade distributions.
 
-Primary intended source: Course Critique (critique.gatech.edu), GT's own
-public grade-distribution tool. Course Critique gates full detail behind GT
-CAS single sign-on. This module NEVER automates that login - it makes a
-plain unauthenticated request and, the moment it sees a redirect toward a
-GT/CAS login page, stops and reports the data as unavailable rather than
-guessing or inventing numbers. When Course Critique (or a future public
-mirror of the same data) is reachable without auth, this module parses its
-JSON records into per-professor, per-course, per-term grade rows.
+Source: the public data API behind Course Critique (critique.gatech.edu),
+GT's own grade-distribution tool. The critique.gatech.edu site itself is a
+client-rendered app with no login gate on this data - it calls a plain,
+unauthenticated AWS API Gateway endpoint (`COURSE_CRITIQUE_BASE`, see
+config.py for how this was confirmed) to get it. This module still checks
+for a redirect toward a GT/CAS login page as a safety net and reports the
+data as unavailable rather than following it, in case that ever changes,
+but in practice this endpoint has never required auth. It parses the
+per-historical-section records under the response's "raw" key into
+per-professor, per-course, per-term grade rows.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -24,6 +27,32 @@ _LOGIN_MARKERS = ("login.gatech.edu", "cas.gatech.edu", "sso.gatech.edu", "shibb
 
 _GRADE_KEYS = ("a", "b", "c", "d", "f", "w")
 
+# Course Critique doesn't report an exact per-section headcount - it buckets
+# it into one of these labels instead. These are the same estimates Course
+# Critique's own app uses (and that gt-scheduler mirrors), so aggregate GPAs
+# computed from them line up with what students see on Course Critique.
+_CLASS_SIZE_ESTIMATES = {
+    "very small (fewer than 10 students)": 5,
+    "small (10-20 students)": 15,
+    "mid-size (21-30 students)": 25,
+    "large (31-49 students)": 40,
+    "very large (50 students or more)": 50,
+}
+
+_SEASON_CODE = {"spring": "02", "summer": "05", "fall": "08"}
+_TERM_LABEL_RE = re.compile(r"(spring|summer|fall)\s+(\d{4})", re.IGNORECASE)
+
+
+def _term_code_from_label(label: str) -> str:
+    """Course Critique reports terms as plain text ("Fall 2017"); the rest
+    of the app works in Banner-style YYYYMM codes. Returns "" if the label
+    doesn't match a recognized season/year shape."""
+    match = _TERM_LABEL_RE.search(label)
+    if not match:
+        return ""
+    season, year = match.groups()
+    return f"{year}{_SEASON_CODE[season.lower()]}"
+
 
 @dataclass
 class GradeRow:
@@ -32,7 +61,7 @@ class GradeRow:
     subject: str
     course_number: str
     term_code: str
-    counts: dict[str, int]
+    counts: dict[str, float]
     gpa: Optional[float]
     sample_size: int
     source_url: str
@@ -60,10 +89,9 @@ def _client() -> httpx.Client:
 
 
 def _fetch_course_json(subject: str, course_number: str) -> tuple[str, Optional[str]]:
-    url = f"{COURSE_CRITIQUE_BASE}/api/course/{subject}/{course_number}"
     try:
         with _client() as client:
-            resp = client.get(url)
+            resp = client.get(COURSE_CRITIQUE_BASE, params={"courseID": f"{subject} {course_number}"})
         if _is_login_redirect(str(resp.url)):
             return "blocked", None
         if resp.status_code == 200:
@@ -75,7 +103,7 @@ def _fetch_course_json(subject: str, course_number: str) -> tuple[str, Optional[
         return "error", None
 
 
-def _gpa_from_counts(counts: dict[str, int]) -> Optional[float]:
+def _gpa_from_counts(counts: dict[str, float]) -> Optional[float]:
     points = {"a": 4.0, "b": 3.0, "c": 2.0, "d": 1.0, "f": 0.0}
     graded = sum(counts.get(k, 0) for k in points)
     if graded == 0:
@@ -92,22 +120,34 @@ def _parse_records(raw_json: str, subject: str, course_number: str, source_url: 
     except (json.JSONDecodeError, TypeError):
         return []
 
-    records: list[dict[str, Any]] = data if isinstance(data, list) else data.get("sections", [])
+    records: list[dict[str, Any]] = data.get("raw", []) if isinstance(data, dict) else []
     retrieved_at = now_iso()
     rows: list[GradeRow] = []
 
     for rec in records:
-        instructor_raw = rec.get("instructor") or rec.get("professor") or rec.get("instructor_name")
-        term_code = str(rec.get("term") or rec.get("term_code") or rec.get("semester") or "")
-        if not instructor_raw or not term_code:
+        if not isinstance(rec, dict):
             continue
 
-        counts = {k: int(rec.get(k, rec.get(k.upper(), 0)) or 0) for k in _GRADE_KEYS}
-        sample_size = int(rec.get("total") or sum(counts.values()) or 0)
-        if sample_size == 0:
+        instructor_raw = rec.get("instructor_name")
+        term_label = str(rec.get("Term") or "")
+        if not instructor_raw or not term_label:
             continue
-        gpa_raw = rec.get("gpa") or rec.get("average_gpa")
-        gpa = float(gpa_raw) if gpa_raw not in (None, "") else _gpa_from_counts(counts)
+        term_code = _term_code_from_label(term_label)
+        if not term_code:
+            continue
+
+        class_size_group = str(rec.get("class_size_group") or "").strip().lower()
+        sample_size = _CLASS_SIZE_ESTIMATES.get(class_size_group)
+        if sample_size is None:
+            continue  # unrecognized bucket - don't guess a headcount
+
+        # Grade letter fields are per-section *percentages*, not counts
+        # (Course Critique never reports an exact per-letter headcount).
+        counts = {k: float(rec.get(k.upper()) or 0.0) for k in _GRADE_KEYS}
+        gpa_raw = rec.get("GPA")
+        gpa = float(gpa_raw) if isinstance(gpa_raw, (int, float)) else _gpa_from_counts(counts)
+        if gpa is None:
+            continue
 
         rows.append(
             GradeRow(
@@ -127,7 +167,7 @@ def _parse_records(raw_json: str, subject: str, course_number: str, source_url: 
 
 
 def get_grade_history(subject: str, course_number: str, force_refresh: bool = False) -> GradeResult:
-    source_url = f"{COURSE_CRITIQUE_BASE}/api/course/{subject}/{course_number}"
+    source_url = f"{COURSE_CRITIQUE_BASE}?courseID={subject} {course_number}"
 
     def fetcher() -> tuple[str, Optional[str]]:
         return _fetch_course_json(subject, course_number)

@@ -31,9 +31,15 @@ def _mock_schedule_session_and_term():
     respx.post(f"{GT_SCHEDULE_BASE}/ssb/term/search").mock(return_value=httpx.Response(200, json={"success": True}))
 
 
-GRADE_RECORDS = [
-    {"instructor": "Simpkins, Charles A", "term": "202408", "a": 130, "b": 35, "c": 10, "d": 2, "f": 1, "w": 8, "total": 186, "gpa": 3.55},
-]
+GRADE_RECORDS = {
+    "raw": [
+        {
+            "instructor_name": "Simpkins, Charles A", "Term": "Fall 2024",
+            "class_size_group": "Very Large (50 students or more)",
+            "GPA": 3.55, "A": 70, "B": 19, "C": 5, "D": 1, "F": 1, "W": 4,
+        },
+    ]
+}
 
 
 @pytest.fixture(autouse=True)
@@ -59,7 +65,7 @@ def client():
 def test_grade_outcomes_component_in_api_response_carries_a_source_url(client):
     _mock_schedule_session_and_term()
     respx.get(SEARCH_RESULTS_URL).mock(return_value=httpx.Response(200, text=_load(SCHEDULE_FIXTURE)))
-    respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/CS/1301").mock(return_value=httpx.Response(200, json=GRADE_RECORDS))
+    respx.get(COURSE_CRITIQUE_BASE).mock(return_value=httpx.Response(200, json=GRADE_RECORDS))
     respx.get("https://html.duckduckgo.com/html/").mock(return_value=httpx.Response(200, text="<html></html>"))
     respx.get("https://www.reddit.com/r/gatech/search.json").mock(return_value=httpx.Response(200, json={"data": {"children": []}}))
     from app.modules.teaching_recognition import PUBLIC_RECOGNITION_PAGES
@@ -84,7 +90,7 @@ def test_grade_outcomes_component_in_api_response_carries_a_source_url(client):
         "the API response carries no source_url for it - a viewer cannot "
         "verify where the number came from."
     )
-    assert any("critique.gatech.edu" in s for s in grade_component["sources"])
+    assert any(COURSE_CRITIQUE_BASE in s for s in grade_component["sources"])
 
 
 def test_grade_signal_dataclass_carries_source_url():
@@ -111,11 +117,19 @@ def test_syllabus_signal_dataclass_carries_source_url():
 def test_comparison_row_course_gpa_has_a_traceable_source(client):
     _mock_schedule_session_and_term()
     respx.get(SEARCH_RESULTS_URL).mock(return_value=httpx.Response(200, text=_load(SCHEDULE_FIXTURE)))
-    respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/CS/1301").mock(
-        return_value=httpx.Response(200, json=[
-            {"instructor": "Simpkins, Charles A", "term": "202408", "a": 130, "b": 35, "c": 10, "d": 2, "f": 1, "w": 8, "total": 186, "gpa": 3.55},
-            {"instructor": "Summet, Jennifer W", "term": "202408", "a": 40, "b": 55, "c": 45, "d": 15, "f": 10, "w": 18, "total": 183, "gpa": 2.35},
-        ])
+    respx.get(COURSE_CRITIQUE_BASE).mock(
+        return_value=httpx.Response(200, json={"raw": [
+            {
+                "instructor_name": "Simpkins, Charles A", "Term": "Fall 2024",
+                "class_size_group": "Very Large (50 students or more)",
+                "GPA": 3.55, "A": 70, "B": 19, "C": 5, "D": 1, "F": 1, "W": 4,
+            },
+            {
+                "instructor_name": "Summet, Jennifer W", "Term": "Fall 2024",
+                "class_size_group": "Very Large (50 students or more)",
+                "GPA": 2.35, "A": 22, "B": 30, "C": 25, "D": 8, "F": 5, "W": 10,
+            },
+        ]})
     )
     respx.get("https://html.duckduckgo.com/html/").mock(return_value=httpx.Response(200, text="<html></html>"))
     respx.get("https://www.reddit.com/r/gatech/search.json").mock(return_value=httpx.Response(200, json={"data": {"children": []}}))

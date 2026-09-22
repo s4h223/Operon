@@ -53,7 +53,22 @@ CACHE_TTL_SECONDS = {
 # unauthenticated; it just needs an anonymous session cookie established via
 # a GET before the search requests, not a GT account.
 GT_SCHEDULE_BASE = "https://registration.banner.gatech.edu/StudentRegistrationSsb"
-COURSE_CRITIQUE_BASE = "https://critique.gatech.edu"
+
+# NOTE on this URL's history: "critique.gatech.edu/api/course/{subject}/
+# {course}" (the original guess) doesn't exist - critique.gatech.edu is a
+# client-rendered React app with no such REST path of its own. The actual
+# data it displays comes from a separate, public, unauthenticated AWS API
+# Gateway endpoint (no GT login of any kind - confirmed by fetching it
+# directly with no cookies/auth and getting full grade data back), verified
+# against the current source of the actively maintained github.com/
+# gt-scheduler/firebase-conf (its `course_critique_cache.ts` cache proxy)
+# and github.com/gt-scheduler/website (its `Course.ts` GPA-fetch bean).
+# Query with `?courseID=SUBJ NUMBER` (e.g. "CS 1301", space included, URL
+# encoded). Response shape: {"header": [...], "raw": [per-historical-section
+# records]} - NOT a bare list, and field names are "Term"/"GPA"/
+# "instructor_name"/"class_size_group" (title-cased in a couple of spots),
+# not the lowercase "term"/"gpa" guessed originally.
+COURSE_CRITIQUE_BASE = "https://c4citk6s9k.execute-api.us-east-1.amazonaws.com/prod/data/course"
 DUCKDUCKGO_HTML_BASE = "https://html.duckduckgo.com/html/"
 REDDIT_SEARCH_BASE = "https://www.reddit.com/r/gatech/search.json"
 

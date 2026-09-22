@@ -178,6 +178,12 @@ def _modality_of(rec: dict[str, Any], building: Optional[str]) -> Optional[str]:
         return "online"
     if "hybrid" in haystack:
         return "hybrid"
+    # Banner doesn't positively flag the common case - a section that isn't
+    # online or hybrid, and has a real building assigned, is a normal
+    # face-to-face class. Only fall back to "unknown" when there's nothing
+    # at all to go on (no meeting-type text and no building).
+    if haystack.strip() or (building or "").strip():
+        return "in_person"
     return None
 
 

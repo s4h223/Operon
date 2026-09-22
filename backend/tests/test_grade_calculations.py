@@ -43,24 +43,37 @@ def test_gpa_from_counts_realistic_phys2211_distribution():
 # --- one-section vs many-section professor -----------------------------------
 
 def test_professor_with_one_historical_section():
-    records = [
-        {"instructor": "Patel, Anjali R", "term": "202408", "a": 20, "b": 15, "c": 8, "d": 2, "f": 1, "w": 4, "total": 50, "gpa": 3.1},
-    ]
+    records = {
+        "raw": [
+            {
+                "instructor_name": "Patel, Anjali R", "Term": "Fall 2024",
+                "class_size_group": "Mid-Size (21-30 students)",
+                "GPA": 3.1, "A": 40, "B": 30, "C": 16, "D": 4, "F": 2, "W": 8,
+            },
+        ]
+    }
     rows = _parse_records(json.dumps(records), "PHYS", "2211", "http://critique.test/phys2211")
     prof_rows = rows_for_professor(rows, "anjali_patel")
     assert len(prof_rows) == 1
-    assert prof_rows[0].sample_size == 50
+    assert prof_rows[0].sample_size == 25  # "Mid-Size (21-30 students)" bucket estimate
 
 
 def test_professor_with_many_historical_sections():
-    records = [
-        {"instructor": "Chen, Wei L", "term": t, "a": 30, "b": 20, "c": 10, "d": 3, "f": 2, "w": 5, "total": 70, "gpa": 3.2}
-        for t in ["202008", "202108", "202208", "202308", "202408", "202508"]
-    ]
+    seasons = ["Fall 2020", "Fall 2021", "Fall 2022", "Fall 2023", "Fall 2024", "Fall 2025"]
+    records = {
+        "raw": [
+            {
+                "instructor_name": "Chen, Wei L", "Term": season,
+                "class_size_group": "Large (31-49 students)",
+                "GPA": 3.2, "A": 43, "B": 29, "C": 14, "D": 4, "F": 3, "W": 7,
+            }
+            for season in seasons
+        ]
+    }
     rows = _parse_records(json.dumps(records), "MATH", "1552", "http://critique.test/math1552")
     prof_rows = rows_for_professor(rows, "wei_chen")
     assert len(prof_rows) == 6
-    assert sum(r.sample_size for r in prof_rows) == 420
+    assert sum(r.sample_size for r in prof_rows) == 240  # 6 sections x 40 (Large bucket estimate)
 
 
 def test_many_sections_yield_higher_confidence_than_one_section_same_gpa():

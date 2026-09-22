@@ -62,7 +62,7 @@ def test_get_sections_for_course_parses_meeting_details():
     assert simpkins.section_id == "A"
     assert simpkins.meeting_days == "MWF"
     assert simpkins.meeting_time == "09:35-10:25"
-    assert simpkins.modality is None  # face-to-face, not flagged online
+    assert simpkins.modality == "in_person"  # face-to-face, not online/hybrid
     assert simpkins.seats_capacity == 120
     assert simpkins.seats_taken == 118
 
