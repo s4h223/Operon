@@ -145,6 +145,7 @@ def get_questionnaire(req: QuestionnaireRequest):
 
 class PreferencesModel(BaseModel):
     priority: str = "balanced"
+    priority_ranking: Optional[list[str]] = None
     workload_preference: Optional[str] = None
     assessment_preference: Optional[str] = None
     structure_preference: Optional[str] = None

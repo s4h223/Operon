@@ -43,10 +43,13 @@ export interface Question {
   options: QuestionOption[];
   always_ask: boolean;
   evidence_probe: string | null;
+  type?: "choice" | "rank";
+  rank_count?: number;
 }
 
 export interface Preferences {
   priority: string;
+  priority_ranking?: string[] | null;
   workload_preference?: string | null;
   assessment_preference?: string | null;
   structure_preference?: string | null;

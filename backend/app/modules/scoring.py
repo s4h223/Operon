@@ -82,7 +82,8 @@ class GradeSignal:
 
 @dataclass
 class Preferences:
-    priority: str = "balanced"                      # grade | learning | workload | balanced
+    priority: str = "balanced"                      # grade | learning | workload | balanced - legacy fallback, used only when priority_ranking is not given
+    priority_ranking: Optional[list[str]] = None      # ordered COMPONENT_NAMES, most important first (e.g. student's top 3)
     workload_preference: Optional[str] = None        # light | moderate | heavy
     assessment_preference: Optional[str] = None       # exam | project | homework | balanced
     structure_preference: Optional[str] = None        # high | low
@@ -386,12 +387,31 @@ _PRIORITY_MULTIPLIERS: dict[str, dict[str, float]] = {
     "balanced": {},
 }
 
+# Multiplier applied to a component's base weight by its rank position in
+# `Preferences.priority_ranking` (index 0 = student's #1 priority). A
+# component the student didn't rank at all keeps its base weight (1.0x) -
+# ranking your top few doesn't punish the rest, it just boosts what you
+# actually said mattered most, proportionally less for each rank down.
+_RANK_MULTIPLIERS = [2.0, 1.5, 1.2, 1.05]
+
+
+def _priority_multipliers(preferences: Preferences) -> dict[str, float]:
+    if preferences.priority_ranking:
+        multipliers: dict[str, float] = {}
+        for index, name in enumerate(preferences.priority_ranking):
+            if name not in COMPONENT_NAMES:
+                continue  # ignore anything the frontend didn't actually offer
+            rank_multiplier = _RANK_MULTIPLIERS[index] if index < len(_RANK_MULTIPLIERS) else 1.0
+            multipliers[name] = rank_multiplier
+        return multipliers
+    return _PRIORITY_MULTIPLIERS.get(preferences.priority, {})
+
 
 def compute_dynamic_weights(preferences: Preferences, available_components: list[str]) -> dict[str, float]:
     """Base weights -> priority multiplier -> support-importance bump ->
     restrict to available components -> renormalize to sum to 1.0. This is
     the "redistribute weight across available evidence" step."""
-    multipliers = _PRIORITY_MULTIPLIERS.get(preferences.priority, {})
+    multipliers = _priority_multipliers(preferences)
     adjusted = {name: BASE_WEIGHTS[name] * multipliers.get(name, 1.0) for name in COMPONENT_NAMES}
 
     if preferences.support_importance == "high":

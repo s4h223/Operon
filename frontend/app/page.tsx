@@ -33,6 +33,7 @@ type Step =
   | "loading_professors"
   | "scope"
   | "professor_select"
+  | "loading_questionnaire"
   | "question"
   | "loading_recommendation"
   | "results"
@@ -135,6 +136,7 @@ export default function Home() {
 
   async function proceedToQuestions(professorKeys: string[] | undefined) {
     if (!confirmedCourse || !selectedTerm) return;
+    setStep("loading_questionnaire");
     try {
       const res = await fetchQuestionnaire(selectedTerm, confirmedCourse.subject, confirmedCourse.course_number, professorKeys);
       setQuestions(res.questions);
@@ -160,6 +162,13 @@ export default function Home() {
   function handleAnswer(value: string) {
     const q = questions[questionIndex];
     const updated = { ...preferences, [q.field]: value };
+    setPreferences(updated);
+    advanceQuestion(updated);
+  }
+
+  function handleAnswerMultiple(values: string[]) {
+    const q = questions[questionIndex];
+    const updated = { ...preferences, [q.field]: values };
     setPreferences(updated);
     advanceQuestion(updated);
   }
@@ -208,11 +217,25 @@ export default function Home() {
 
   // ---------------------------------------------------------------------
 
-  if (step === "loading_semesters" || step === "loading_professors" || step === "loading_recommendation" || step === "loading_comparison") {
+  if (
+    step === "loading_semesters" ||
+    step === "loading_professors" ||
+    step === "loading_questionnaire" ||
+    step === "loading_recommendation" ||
+    step === "loading_comparison"
+  ) {
     return (
       <Shell>
-        <div className="text-center" style={{ color: "var(--text-muted)" }}>
-          Gathering evidence…
+        <div className="text-center max-w-sm" style={{ color: "var(--text-muted)" }}>
+          <div className="text-2xl font-semibold mb-2" style={{ color: "var(--text)" }}>
+            Gathering evidence…
+          </div>
+          {(step === "loading_questionnaire" || step === "loading_recommendation") && (
+            <p className="text-base">
+              Researching grades, syllabi, and public discussion for each professor. This can take a
+              little while - it&apos;s doing real research, not a quick lookup.
+            </p>
+          )}
         </div>
       </Shell>
     );
@@ -389,6 +412,7 @@ export default function Home() {
           index={questionIndex}
           total={questions.length}
           onAnswer={handleAnswer}
+          onAnswerMultiple={handleAnswerMultiple}
           onSkip={handleSkip}
         />
       </Shell>

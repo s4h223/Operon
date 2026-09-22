@@ -208,13 +208,18 @@ def gather_profiles(
 QUESTION_DEFINITIONS = [
     {
         "id": "priority",
-        "field": "priority",
+        "field": "priority_ranking",
         "text": "What matters most to you in this course?",
+        "type": "rank",
+        "rank_count": 3,
         "options": [
-            {"value": "grade", "label": "Maximizing my chance of a strong grade"},
-            {"value": "learning", "label": "Learning the material deeply"},
-            {"value": "workload", "label": "Minimizing workload"},
-            {"value": "balanced", "label": "A balance of everything"},
+            {"value": "grade_outcomes", "label": "Maximizing my chance of a strong grade"},
+            {"value": "teaching_experience", "label": "Learning from a professor with strong teaching quality"},
+            {"value": "workload_fit", "label": "A workload that fits what I'm looking for"},
+            {"value": "assessment_fit", "label": "Exams, projects, or homework matching how I like to be graded"},
+            {"value": "structure_fit", "label": "Course structure and attendance expectations that fit me"},
+            {"value": "support_fit", "label": "Instructor support and responsiveness"},
+            {"value": "schedule_modality_fit", "label": "Schedule and modality (in-person/online) fit"},
         ],
         "always_ask": True,
         "evidence_probe": None,

@@ -140,3 +140,70 @@ def test_changing_workload_preference_changes_which_professor_wins():
 
     assert prefers_light.best_match.professor_key == "light_prof"
     assert prefers_heavy.best_match.professor_key == "heavy_prof"
+
+
+# --- ranked priority (top-N pick) ------------------------------------------
+
+def test_ranked_priority_boosts_top_ranked_component_most():
+    prefs = Preferences(priority_ranking=["teaching_experience", "grade_outcomes", "workload_fit"])
+    weights = compute_dynamic_weights(prefs, COMPONENT_NAMES)
+    assert weights["teaching_experience"] > weights["grade_outcomes"] > weights["workload_fit"]
+    # Everything else was left unranked - still present, just not boosted
+    # above the #3 (lowest-ranked) pick.
+    for name in COMPONENT_NAMES:
+        if name not in prefs.priority_ranking:
+            assert weights[name] < weights["workload_fit"]
+
+
+def test_ranked_priority_sums_to_one():
+    prefs = Preferences(priority_ranking=["support_fit", "schedule_modality_fit"])
+    weights = compute_dynamic_weights(prefs, COMPONENT_NAMES)
+    assert sum(weights.values()) == pytest.approx(1.0, abs=1e-9)
+
+
+def test_ranked_priority_ignores_unknown_values_without_crashing():
+    prefs = Preferences(priority_ranking=["not_a_real_component", "grade_outcomes"])
+    weights = compute_dynamic_weights(prefs, COMPONENT_NAMES)
+    assert sum(weights.values()) == pytest.approx(1.0, abs=1e-9)
+    assert weights["grade_outcomes"] > weights["teaching_experience"]
+
+
+def test_ranked_priority_takes_precedence_over_legacy_priority_string():
+    # If both are somehow set, the explicit ranking (the richer signal) wins.
+    prefs = Preferences(priority="grade", priority_ranking=["support_fit"])
+    weights_with_ranking = compute_dynamic_weights(prefs, COMPONENT_NAMES)
+    weights_grade_only = compute_dynamic_weights(Preferences(priority="grade"), COMPONENT_NAMES)
+    assert weights_with_ranking["support_fit"] > weights_grade_only["support_fit"]
+
+
+def test_empty_ranking_falls_back_to_legacy_priority():
+    prefs = Preferences(priority="workload", priority_ranking=[])
+    weights = compute_dynamic_weights(prefs, COMPONENT_NAMES)
+    balanced_weights = compute_dynamic_weights(Preferences(priority="balanced"), COMPONENT_NAMES)
+    assert weights["workload_fit"] > balanced_weights["workload_fit"]
+
+
+def test_ranked_priority_changes_which_professor_wins():
+    from app.modules.recommendation import ProfessorProfile, recommend
+    from app.modules.scoring import GradeSignal, TraitObservation, ProfessorSignals
+
+    prof_a = ProfessorProfile(
+        "prof_a", "Professor A",
+        ProfessorSignals(
+            grades=[GradeSignal(gpa=3.9, sample_size=200, recency_weight=1.0)],
+            trait_observations=[TraitObservation("organized", 0.1, 1.0, True) for _ in range(10)],
+        ),
+    )
+    prof_b = ProfessorProfile(
+        "prof_b", "Professor B",
+        ProfessorSignals(
+            grades=[GradeSignal(gpa=2.6, sample_size=200, recency_weight=1.0)],
+            trait_observations=[TraitObservation("organized", 0.9, 1.0, True) for _ in range(10)],
+        ),
+    )
+
+    grade_ranked_first = recommend([prof_a, prof_b], Preferences(priority_ranking=["grade_outcomes"]))
+    teaching_ranked_first = recommend([prof_a, prof_b], Preferences(priority_ranking=["teaching_experience"]))
+
+    assert grade_ranked_first.best_match.professor_key == "prof_a"
+    assert teaching_ranked_first.best_match.professor_key == "prof_b"
