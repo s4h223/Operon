@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
@@ -21,43 +20,15 @@ router = APIRouter(prefix="/api")
 # Semesters
 # ---------------------------------------------------------------------------
 
-def _generate_semesters(count: int = 4) -> list[dict]:
-    """GT/Banner term codes are YYYYMM (02 Spring, 05/06 Summer, 08 Fall).
-    Generates the upcoming registration terms from today's date - there's
-    no single public "list of terms" endpoint to scrape.
+def _generate_semesters() -> list[dict]:
+    """The terms a student can pick. GT/Banner term codes are YYYYMM
+    (02 Spring, 05/06 Summer, 08 Fall).
 
-    The list starts with the NEXT semester after whichever one is
-    currently in progress, since "what semester are you registering for"
-    means the one you can still register for, not the one already
-    underway (e.g. in the middle of Fall, the list should lead with the
-    upcoming Spring, not the current Fall)."""
-    today = date.today()
-    sequence = [(2, "Spring"), (5, "Summer"), (8, "Fall")]
-    semesters = []
-    year = today.year
-    # Bucket today's month into the semester currently in progress (Jan-Apr
-    # -> Spring, May-Jul -> Summer, Aug-Dec -> Fall)...
-    if today.month < 5:
-        month_idx = 0
-    elif today.month < 8:
-        month_idx = 1
-    else:
-        month_idx = 2
-
-    # ...then advance one step to the next registerable term.
-    month_idx += 1
-    if month_idx == len(sequence):
-        month_idx = 0
-        year += 1
-
-    for _ in range(count):
-        month, label = sequence[month_idx]
-        semesters.append({"term_code": f"{year}{month:02d}", "label": f"{label} {year}"})
-        month_idx += 1
-        if month_idx == len(sequence):
-            month_idx = 0
-            year += 1
-    return semesters
+    Scoped deliberately to Spring 2027 only: that's the term FYVE's
+    recommendations are being built and validated against, and offering a
+    term whose schedule isn't posted yet would just produce empty
+    professor lists. Add entries here as further terms open up."""
+    return [{"term_code": "202702", "label": "Spring 2027"}]
 
 
 @router.get("/semesters")
@@ -145,7 +116,7 @@ def get_questionnaire(req: QuestionnaireRequest):
 
 class PreferencesModel(BaseModel):
     priority: str = "balanced"
-    priority_ranking: Optional[list[str]] = None
+    priority_ratings: Optional[dict[str, int]] = None
     workload_preference: Optional[str] = None
     assessment_preference: Optional[str] = None
     structure_preference: Optional[str] = None

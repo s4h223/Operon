@@ -34,6 +34,7 @@ export interface ProfessorListing {
 export interface QuestionOption {
   value: string;
   label: string;
+  description?: string;
 }
 
 export interface Question {
@@ -43,13 +44,16 @@ export interface Question {
   options: QuestionOption[];
   always_ask: boolean;
   evidence_probe: string | null;
-  type?: "choice" | "rank";
-  rank_count?: number;
+  type?: "choice" | "rate";
+  scale_min?: number;
+  scale_max?: number;
+  scale_min_label?: string;
+  scale_max_label?: string;
 }
 
 export interface Preferences {
   priority: string;
-  priority_ranking?: string[] | null;
+  priority_ratings?: Record<string, number> | null;
   workload_preference?: string | null;
   assessment_preference?: string | null;
   structure_preference?: string | null;

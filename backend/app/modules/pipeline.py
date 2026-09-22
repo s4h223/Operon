@@ -210,18 +210,52 @@ def gather_profiles(
 QUESTION_DEFINITIONS = [
     {
         "id": "priority",
-        "field": "priority_ranking",
-        "text": "What matters most to you in this course?",
-        "type": "rank",
-        "rank_count": 3,
+        "field": "priority_ratings",
+        "text": "How much does each of these matter to you?",
+        "type": "rate",
+        "scale_min": 1,
+        "scale_max": 5,
+        "scale_min_label": "Not important",
+        "scale_max_label": "Very important",
+        # Every rateable factor maps 1:1 to a component the scoring engine
+        # actually weights - rating something FYVE can't measure would be a
+        # lie about what the recommendation is based on.
         "options": [
-            {"value": "grade_outcomes", "label": "Maximizing my chance of a strong grade"},
-            {"value": "teaching_experience", "label": "Learning from a professor with strong teaching quality"},
-            {"value": "workload_fit", "label": "A workload that fits what I'm looking for"},
-            {"value": "assessment_fit", "label": "Exams, projects, or homework matching how I like to be graded"},
-            {"value": "structure_fit", "label": "Course structure and attendance expectations that fit me"},
-            {"value": "support_fit", "label": "Instructor support and responsiveness"},
-            {"value": "schedule_modality_fit", "label": "Schedule and modality (in-person/online) fit"},
+            {
+                "value": "grade_outcomes",
+                "label": "Getting a good grade",
+                "description": "Professors whose students have historically earned higher grades in this course",
+            },
+            {
+                "value": "teaching_experience",
+                "label": "Teaching quality",
+                "description": "Explains concepts clearly and lectures well, according to other students",
+            },
+            {
+                "value": "workload_fit",
+                "label": "Coursework load",
+                "description": "How much homework, studying, and project work lands outside class",
+            },
+            {
+                "value": "assessment_fit",
+                "label": "How you're graded",
+                "description": "The mix of exams, projects, and homework that makes up your grade",
+            },
+            {
+                "value": "structure_fit",
+                "label": "Organization and structure",
+                "description": "A predictable schedule, clear expectations, and attendance rules that suit you",
+            },
+            {
+                "value": "support_fit",
+                "label": "Getting help when stuck",
+                "description": "Responds to questions and holds office hours students find useful",
+            },
+            {
+                "value": "schedule_modality_fit",
+                "label": "Class format and timing",
+                "description": "In person vs online, and when the section meets",
+            },
         ],
         "always_ask": True,
         "evidence_probe": None,

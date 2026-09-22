@@ -82,8 +82,8 @@ class GradeSignal:
 
 @dataclass
 class Preferences:
-    priority: str = "balanced"                      # grade | learning | workload | balanced - legacy fallback, used only when priority_ranking is not given
-    priority_ranking: Optional[list[str]] = None      # ordered COMPONENT_NAMES, most important first (e.g. student's top 3)
+    priority: str = "balanced"                      # grade | learning | workload | balanced - legacy fallback, used only when priority_ratings is not given
+    priority_ratings: Optional[dict[str, int]] = None  # COMPONENT_NAME -> 1..5 importance ("1 = not important, 5 = very important")
     workload_preference: Optional[str] = None        # light | moderate | heavy
     assessment_preference: Optional[str] = None       # exam | project | homework | balanced
     structure_preference: Optional[str] = None        # high | low
@@ -107,8 +107,12 @@ class ComponentScore:
     raw_score: Optional[float]   # 0..1, None = no evidence
     sample_size: int
     confidence: float            # 0..1
-    note: str
+    note: str                    # terse internal/debug summary - NOT shown to students
     sources: list[str] = field(default_factory=list)  # distinct source URLs behind this component
+    # Structured facts behind the score (observed GPA, section modality,
+    # mention counts...). `explanations.py` builds student-facing sentences
+    # from these; `note` is too terse and leaks internal vocabulary.
+    detail: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -163,6 +167,7 @@ def score_grade_outcomes(grades: list[GradeSignal]) -> ComponentScore:
         "grade_outcomes", round(shrunk, 4), total_n, round(confidence, 4),
         f"Based on {total_n} graded students across {len(grades)} section-term(s).",
         sources=_distinct_sources(*(g.source_url for g in grades)),
+        detail={"observed_gpa": round(observed_gpa, 2), "sections": len(grades), "students": total_n},
     )
 
 
@@ -185,6 +190,7 @@ def score_teaching_experience(observations: list[TraitObservation]) -> Component
         "teaching_experience", round(shrunk, 4), n, round(confidence, 4),
         f"Based on {n} student-discussion mention(s) of teaching quality.",
         sources=_distinct_sources(*(o.source_url for o in relevant)),
+        detail={"mentions": n, "traits": sorted({o.trait for o in relevant})},
     )
 
 
@@ -234,6 +240,7 @@ def score_workload_fit(observations: list[TraitObservation], syllabus: Optional[
         "workload_fit", round(_clamp01(fit), 4), n, round(confidence, 4),
         f"Estimated workload intensity {round(intensity, 2)} vs preference '{preference}'.",
         sources=sources,
+        detail={"intensity": round(intensity, 2), "preference": preference, "mentions": n},
     )
 
 
@@ -273,6 +280,12 @@ def score_assessment_fit(syllabus: Optional[SyllabusSignal], preference: Optiona
         "assessment_fit", round(_clamp01(fit), 4), 1, 0.8,
         f"Syllabus weights: exam {round(exam_share*100)}%, homework {round(hw_share*100)}%, project {round(proj_share*100)}%.",
         sources=_distinct_sources(syllabus.source_url),
+        detail={
+            "exam_pct": round(exam_share * 100),
+            "homework_pct": round(hw_share * 100),
+            "project_pct": round(proj_share * 100),
+            "preference": preference,
+        },
     )
 
 
@@ -332,6 +345,11 @@ def score_structure_fit(
     return ComponentScore(
         "structure_fit", round(fit, 4), n, round(confidence, 4), "Blended structure/attendance signal vs preference.",
         sources=_distinct_sources(*sources),
+        detail={
+            "structure_preference": structure_preference,
+            "attendance_preference": attendance_preference,
+            "mentions": n,
+        },
     )
 
 
@@ -359,6 +377,7 @@ def score_support_fit(observations: list[TraitObservation], syllabus: Optional[S
     return ComponentScore(
         "support_fit", round(shrunk, 4), n, round(confidence, 4), f"Based on {n} support/responsiveness mention(s).",
         sources=sources,
+        detail={"mentions": n, "has_office_hours": bool(syllabus and syllabus.has_office_hours)},
     )
 
 
@@ -373,6 +392,7 @@ def score_schedule_modality_fit(
     return ComponentScore(
         "schedule_modality_fit", fit, 1, 0.9, f"Section modality '{modality}' vs preference '{modality_preference}'.",
         sources=_distinct_sources(source_url),
+        detail={"modality": modality, "preference": modality_preference},
     )
 
 
@@ -387,22 +407,27 @@ _PRIORITY_MULTIPLIERS: dict[str, dict[str, float]] = {
     "balanced": {},
 }
 
-# Multiplier applied to a component's base weight by its rank position in
-# `Preferences.priority_ranking` (index 0 = student's #1 priority). A
-# component the student didn't rank at all keeps its base weight (1.0x) -
-# ranking your top few doesn't punish the rest, it just boosts what you
-# actually said mattered most, proportionally less for each rank down.
-_RANK_MULTIPLIERS = [2.0, 1.5, 1.2, 1.05]
+# Multiplier applied to a component's base weight by the 1-5 importance
+# the student gave it. 3 ("somewhat important") is the neutral middle and
+# leaves the base weight untouched; 1 doesn't zero a component out, it just
+# makes it count for much less, because "not important to me" isn't the
+# same as "ignore this evidence entirely".
+_RATING_MULTIPLIERS = {1: 0.25, 2: 0.6, 3: 1.0, 4: 1.6, 5: 2.5}
 
 
 def _priority_multipliers(preferences: Preferences) -> dict[str, float]:
-    if preferences.priority_ranking:
+    if preferences.priority_ratings:
         multipliers: dict[str, float] = {}
-        for index, name in enumerate(preferences.priority_ranking):
+        for name, rating in preferences.priority_ratings.items():
             if name not in COMPONENT_NAMES:
                 continue  # ignore anything the frontend didn't actually offer
-            rank_multiplier = _RANK_MULTIPLIERS[index] if index < len(_RANK_MULTIPLIERS) else 1.0
-            multipliers[name] = rank_multiplier
+            try:
+                rating_int = int(rating)
+            except (TypeError, ValueError):
+                continue
+            multiplier = _RATING_MULTIPLIERS.get(rating_int)
+            if multiplier is not None:
+                multipliers[name] = multiplier
         return multipliers
     return _PRIORITY_MULTIPLIERS.get(preferences.priority, {})
 

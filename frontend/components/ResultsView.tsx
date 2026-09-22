@@ -19,16 +19,33 @@ function ProfessorCard({
   compareSelected?: boolean;
 }) {
   return (
-    <div className={`card p-6 ${featured ? "" : "opacity-90"}`} style={featured ? { borderColor: "var(--accent-end)" } : {}}>
+    <div
+      className={`card ${featured ? "p-9" : "p-6 opacity-90"}`}
+      style={
+        featured
+          ? {
+              // Lift the winner above the alternatives so the page has one
+              // obvious answer rather than a wall of equal-looking cards.
+              // Sized up via padding/type rather than a transform, which
+              // would overflow the gutter on a narrow screen.
+              borderColor: "var(--accent-end)",
+              borderWidth: "2px",
+              boxShadow: "0 12px 44px rgba(91, 127, 232, 0.18)",
+            }
+          : {}
+      }
+    >
       {featured && (
-        <div className="gradient-text font-semibold text-base mb-2 uppercase tracking-wide">Best Match for You</div>
+        <div className="gradient-text font-semibold text-lg mb-3 uppercase tracking-wide">Best Match for You</div>
       )}
-      <div className="flex items-baseline justify-between">
-        <h3 className="text-2xl font-semibold">{rec.display_name}</h3>
-        <div className="text-4xl font-bold gradient-text">{rec.personal_fit?.toFixed(0)}</div>
+      <div className="flex items-baseline justify-between gap-4">
+        <h3 className={`${featured ? "text-4xl" : "text-2xl"} font-semibold`}>{rec.display_name}</h3>
+        <div className={`${featured ? "text-6xl" : "text-4xl"} font-bold gradient-text`}>
+          {rec.personal_fit?.toFixed(0)}
+        </div>
       </div>
       <div className="flex items-center gap-2 mt-1 mb-4">
-        <span className="text-base" style={{ color: "var(--text-muted)" }}>
+        <span className={featured ? "text-lg" : "text-base"} style={{ color: "var(--text-muted)" }}>
           Personal Fit
         </span>
         <ConfidenceBadge label={rec.confidence_label} />
@@ -36,10 +53,10 @@ function ProfessorCard({
 
       {rec.reasons.length > 0 && (
         <div className="mb-3">
-          <div className="text-base font-semibold mb-1" style={{ color: "var(--text-muted)" }}>
+          <div className={`${featured ? "text-lg" : "text-base"} font-semibold mb-1`} style={{ color: "var(--text-muted)" }}>
             Why this fits
           </div>
-          <ul className="list-disc pl-5 space-y-1 text-base">
+          <ul className={`list-disc pl-5 space-y-2 ${featured ? "text-lg" : "text-base"}`}>
             {rec.reasons.map((r, i) => (
               <li key={i}>{r}</li>
             ))}

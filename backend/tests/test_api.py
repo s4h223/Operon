@@ -28,12 +28,14 @@ def test_health(client):
     assert resp.json()["status"] == "ok"
 
 
-def test_semesters_returns_upcoming_terms(client):
+def test_semesters_returns_only_spring_2027(client):
     resp = client.get("/api/semesters")
     assert resp.status_code == 200
     semesters = resp.json()["semesters"]
-    assert len(semesters) == 4
     assert all("term_code" in s and "label" in s for s in semesters)
+    # Deliberately scoped to the one term FYVE is validated against - a term
+    # whose schedule isn't posted yet would only yield empty professor lists.
+    assert semesters == [{"term_code": "202702", "label": "Spring 2027"}]
 
 
 def test_course_search_finds_cs1301(client):

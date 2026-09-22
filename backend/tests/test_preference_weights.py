@@ -142,48 +142,75 @@ def test_changing_workload_preference_changes_which_professor_wins():
     assert prefers_heavy.best_match.professor_key == "heavy_prof"
 
 
-# --- ranked priority (top-N pick) ------------------------------------------
+# --- 1-5 importance ratings -------------------------------------------------
 
-def test_ranked_priority_boosts_top_ranked_component_most():
-    prefs = Preferences(priority_ranking=["teaching_experience", "grade_outcomes", "workload_fit"])
+def test_higher_rated_component_gets_more_weight():
+    prefs = Preferences(priority_ratings={
+        "teaching_experience": 5, "grade_outcomes": 4, "workload_fit": 3, "support_fit": 1,
+    })
     weights = compute_dynamic_weights(prefs, COMPONENT_NAMES)
-    assert weights["teaching_experience"] > weights["grade_outcomes"] > weights["workload_fit"]
-    # Everything else was left unranked - still present, just not boosted
-    # above the #3 (lowest-ranked) pick.
+    # Compare each against its own base weight share rather than against each
+    # other, since the components start from different base weights.
+    base = compute_dynamic_weights(Preferences(priority="balanced"), COMPONENT_NAMES)
+    assert weights["teaching_experience"] / base["teaching_experience"] > 1.0
+    assert weights["grade_outcomes"] / base["grade_outcomes"] > 1.0
+    assert weights["support_fit"] / base["support_fit"] < 1.0
+    # And the 5 beats the 4 beats the 3 beats the 1, proportionally.
+    ratio = lambda n: weights[n] / base[n]
+    assert ratio("teaching_experience") > ratio("grade_outcomes") > ratio("workload_fit") > ratio("support_fit")
+
+
+def test_rating_of_3_is_neutral():
+    all_threes = Preferences(priority_ratings={name: 3 for name in COMPONENT_NAMES})
+    weights = compute_dynamic_weights(all_threes, COMPONENT_NAMES)
+    balanced = compute_dynamic_weights(Preferences(priority="balanced"), COMPONENT_NAMES)
     for name in COMPONENT_NAMES:
-        if name not in prefs.priority_ranking:
-            assert weights[name] < weights["workload_fit"]
+        assert weights[name] == pytest.approx(balanced[name], abs=1e-9)
 
 
-def test_ranked_priority_sums_to_one():
-    prefs = Preferences(priority_ranking=["support_fit", "schedule_modality_fit"])
+def test_lowest_rating_downweights_but_never_zeroes_a_component():
+    prefs = Preferences(priority_ratings={name: 1 for name in COMPONENT_NAMES})
+    weights = compute_dynamic_weights(prefs, COMPONENT_NAMES)
+    # "Not important to me" must not mean "throw this evidence away" - all
+    # components rated equally low still just renormalize back to the base.
+    assert sum(weights.values()) == pytest.approx(1.0, abs=1e-9)
+    assert all(w > 0 for w in weights.values())
+
+
+def test_ratings_sum_to_one_for_any_subset_of_available_components():
+    prefs = Preferences(priority_ratings={"support_fit": 5, "schedule_modality_fit": 2})
+    for subset in [["support_fit"], ["support_fit", "grade_outcomes"], COMPONENT_NAMES]:
+        weights = compute_dynamic_weights(prefs, subset)
+        assert sum(weights.values()) == pytest.approx(1.0, abs=1e-9)
+
+
+def test_ratings_ignore_unknown_component_names_and_bad_values():
+    prefs = Preferences(priority_ratings={
+        "not_a_real_component": 5, "grade_outcomes": 5, "teaching_experience": 99, "support_fit": "oops",
+    })
     weights = compute_dynamic_weights(prefs, COMPONENT_NAMES)
     assert sum(weights.values()) == pytest.approx(1.0, abs=1e-9)
+    base = compute_dynamic_weights(Preferences(priority="balanced"), COMPONENT_NAMES)
+    # The valid rating applied; the out-of-range/garbage ones fell back to base.
+    assert weights["grade_outcomes"] / base["grade_outcomes"] > 1.0
+    assert weights["teaching_experience"] / base["teaching_experience"] < 1.0  # only because grades took share
 
 
-def test_ranked_priority_ignores_unknown_values_without_crashing():
-    prefs = Preferences(priority_ranking=["not_a_real_component", "grade_outcomes"])
-    weights = compute_dynamic_weights(prefs, COMPONENT_NAMES)
-    assert sum(weights.values()) == pytest.approx(1.0, abs=1e-9)
-    assert weights["grade_outcomes"] > weights["teaching_experience"]
-
-
-def test_ranked_priority_takes_precedence_over_legacy_priority_string():
-    # If both are somehow set, the explicit ranking (the richer signal) wins.
-    prefs = Preferences(priority="grade", priority_ranking=["support_fit"])
-    weights_with_ranking = compute_dynamic_weights(prefs, COMPONENT_NAMES)
+def test_ratings_take_precedence_over_legacy_priority_string():
+    prefs = Preferences(priority="grade", priority_ratings={"support_fit": 5})
+    weights_with_ratings = compute_dynamic_weights(prefs, COMPONENT_NAMES)
     weights_grade_only = compute_dynamic_weights(Preferences(priority="grade"), COMPONENT_NAMES)
-    assert weights_with_ranking["support_fit"] > weights_grade_only["support_fit"]
+    assert weights_with_ratings["support_fit"] > weights_grade_only["support_fit"]
 
 
-def test_empty_ranking_falls_back_to_legacy_priority():
-    prefs = Preferences(priority="workload", priority_ranking=[])
+def test_empty_ratings_fall_back_to_legacy_priority():
+    prefs = Preferences(priority="workload", priority_ratings={})
     weights = compute_dynamic_weights(prefs, COMPONENT_NAMES)
     balanced_weights = compute_dynamic_weights(Preferences(priority="balanced"), COMPONENT_NAMES)
     assert weights["workload_fit"] > balanced_weights["workload_fit"]
 
 
-def test_ranked_priority_changes_which_professor_wins():
+def test_ratings_change_which_professor_wins():
     from app.modules.recommendation import ProfessorProfile, recommend
     from app.modules.scoring import GradeSignal, TraitObservation, ProfessorSignals
 
@@ -202,8 +229,12 @@ def test_ranked_priority_changes_which_professor_wins():
         ),
     )
 
-    grade_ranked_first = recommend([prof_a, prof_b], Preferences(priority_ranking=["grade_outcomes"]))
-    teaching_ranked_first = recommend([prof_a, prof_b], Preferences(priority_ranking=["teaching_experience"]))
+    grades_matter_most = recommend(
+        [prof_a, prof_b], Preferences(priority_ratings={"grade_outcomes": 5, "teaching_experience": 1}),
+    )
+    teaching_matters_most = recommend(
+        [prof_a, prof_b], Preferences(priority_ratings={"grade_outcomes": 1, "teaching_experience": 5}),
+    )
 
-    assert grade_ranked_first.best_match.professor_key == "prof_a"
-    assert teaching_ranked_first.best_match.professor_key == "prof_b"
+    assert grades_matter_most.best_match.professor_key == "prof_a"
+    assert teaching_matters_most.best_match.professor_key == "prof_b"

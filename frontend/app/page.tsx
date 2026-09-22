@@ -41,6 +41,35 @@ type Step =
   | "compare"
   | "error";
 
+const RESEARCH_PHASES = [
+  "Pulling the current term's sections from GT's registration system",
+  "Looking up historical grade distributions per professor",
+  "Searching the public web for student discussion",
+  "Checking Reddit threads mentioning each professor",
+  "Reading any syllabi that turned up",
+  "Scoring each professor against what matters to you",
+];
+
+/** Cycles through the real phases of the research pass. The backend does
+ * this work in one blocking call with no progress stream, so this is an
+ * honest description of the sequence rather than a live percentage. */
+function ResearchProgress() {
+  const [phase, setPhase] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setPhase((p) => (p + 1) % RESEARCH_PHASES.length);
+    }, 2800);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <div className="text-base" style={{ minHeight: "3rem" }}>
+      {RESEARCH_PHASES[phase]}
+    </div>
+  );
+}
+
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <main className="min-h-screen flex flex-col items-center px-6 py-14" style={{ background: "var(--bg)" }}>
@@ -166,9 +195,9 @@ export default function Home() {
     advanceQuestion(updated);
   }
 
-  function handleAnswerMultiple(values: string[]) {
+  function handleAnswerRatings(ratings: Record<string, number>) {
     const q = questions[questionIndex];
-    const updated = { ...preferences, [q.field]: values };
+    const updated = { ...preferences, [q.field]: ratings };
     setPreferences(updated);
     advanceQuestion(updated);
   }
@@ -224,18 +253,33 @@ export default function Home() {
     step === "loading_recommendation" ||
     step === "loading_comparison"
   ) {
+    const isDeepResearch = step === "loading_questionnaire" || step === "loading_recommendation";
+    const title =
+      step === "loading_semesters"
+        ? "Starting up"
+        : step === "loading_professors"
+          ? "Finding who's teaching this course"
+          : step === "loading_comparison"
+            ? "Building your comparison"
+            : "Gathering evidence";
+
     return (
       <Shell>
-        <div className="text-center max-w-sm" style={{ color: "var(--text-muted)" }}>
-          <div className="text-2xl font-semibold mb-2" style={{ color: "var(--text)" }}>
-            Gathering evidence…
+        <div className="text-center max-w-md flex flex-col items-center" style={{ color: "var(--text-muted)" }}>
+          <div className="spinner mb-8" />
+          <div className="text-2xl font-semibold mb-3 loading-dots" style={{ color: "var(--text)" }}>
+            {title}
           </div>
-          {(step === "loading_questionnaire" || step === "loading_recommendation") && (
-            <p className="text-base">
-              Researching grades, syllabi, and public discussion for each professor. This can take a
-              little while - it&apos;s doing real research, not a quick lookup.
-            </p>
+          {isDeepResearch && (
+            <>
+              <p className="text-base mb-7">
+                Researching grades, syllabi, and public discussion for each professor. This can take a
+                little while - it&apos;s doing real research, not a quick lookup.
+              </p>
+              <ResearchProgress />
+            </>
           )}
+          <div className="progress-track mt-7" />
         </div>
       </Shell>
     );
@@ -412,7 +456,7 @@ export default function Home() {
           index={questionIndex}
           total={questions.length}
           onAnswer={handleAnswer}
-          onAnswerMultiple={handleAnswerMultiple}
+          onAnswerRatings={handleAnswerRatings}
           onSkip={handleSkip}
         />
       </Shell>

@@ -44,14 +44,25 @@ def test_no_profiles_only_asks_priority():
     assert ids == {"priority"}
 
 
-def test_priority_question_is_a_rank_of_real_scoring_components():
+def test_priority_question_is_a_1_to_5_rating_of_real_scoring_components():
     priority_q = next(q for q in relevant_questions([]) if q["id"] == "priority")
-    assert priority_q["type"] == "rank"
-    assert priority_q["field"] == "priority_ranking"
-    assert priority_q["rank_count"] >= 3
+    assert priority_q["type"] == "rate"
+    assert priority_q["field"] == "priority_ratings"
+    assert priority_q["scale_min"] == 1
+    assert priority_q["scale_max"] == 5
     option_values = {opt["value"] for opt in priority_q["options"]}
-    # Every rankable option must correspond to a real component the scoring
-    # engine actually weights - ranking something that doesn't map to a
+    # Every rateable option must correspond to a real component the scoring
+    # engine actually weights - rating something that doesn't map to a
     # real signal would be a UI lie.
     assert option_values <= set(COMPONENT_NAMES)
-    assert len(option_values) >= 5  # "a few more options" than the old 4
+    assert len(option_values) >= 5
+
+
+def test_priority_question_options_are_written_in_student_language():
+    priority_q = next(q for q in relevant_questions([]) if q["id"] == "priority")
+    for opt in priority_q["options"]:
+        # Labels are what the student reads - they must not leak the
+        # internal component names (e.g. "schedule_modality_fit").
+        assert "_" not in opt["label"]
+        assert opt["label"][0].isupper()
+        assert opt["description"]
