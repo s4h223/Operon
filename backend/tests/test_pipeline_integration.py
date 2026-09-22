@@ -105,7 +105,7 @@ def client():
 
 
 def _mock_all_external_calls():
-    respx.get(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
+    respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
         return_value=httpx.Response(200, text=_load(SCHEDULE_FIXTURE_PATH))
     )
     respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/CS/1301").mock(
@@ -187,7 +187,7 @@ def test_full_pipeline_compare_endpoint(client):
 
 @respx.mock
 def test_full_pipeline_math1552_one_professor_multiple_sections(client):
-    respx.get(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
+    respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
         return_value=httpx.Response(200, text=_load(FIXTURES_DIR + "/oscar_math1552_sample.html"))
     )
     respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/MATH/1552").mock(
@@ -220,7 +220,7 @@ def test_full_pipeline_math1552_one_professor_multiple_sections(client):
 
 @respx.mock
 def test_full_pipeline_phys2211_single_professor_no_history_no_discussion(client):
-    respx.get(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
+    respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
         return_value=httpx.Response(200, text=_load(FIXTURES_DIR + "/oscar_phys2211_sample.html"))
     )
     respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/PHYS/2211").mock(return_value=httpx.Response(200, json=[]))
@@ -263,7 +263,7 @@ def test_full_pipeline_acct2101_historical_professor_not_in_current_schedule_is_
     in the current term's Oscar listing must never be surfaced as a
     recommendation candidate - there is no "historical professor" opt-in
     mode yet (see QA_TESTING_STRATEGY.md Known Limitations)."""
-    respx.get(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
+    respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
         return_value=httpx.Response(200, text=_load(FIXTURES_DIR + "/oscar_acct2101_sample.html"))
     )
     respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/ACCT/2101").mock(

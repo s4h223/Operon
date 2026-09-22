@@ -48,7 +48,7 @@ CACHE_TTL_SECONDS = {
 # github.com/chris-martin/grouch) have scraped bwckschd.p_get_crse_unsec on
 # this host without any login for years, which is what "_unsec" (unsecured)
 # signals about the endpoint itself.
-GT_SCHEDULE_BASE = "https://oscar.gatech.edu/bprod"
+GT_SCHEDULE_BASE = "https://oscar.gatech.edu/pls/bprod"
 COURSE_CRITIQUE_BASE = "https://critique.gatech.edu"
 DUCKDUCKGO_HTML_BASE = "https://html.duckduckgo.com/html/"
 REDDIT_SEARCH_BASE = "https://www.reddit.com/r/gatech/search.json"

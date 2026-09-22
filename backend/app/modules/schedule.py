@@ -1,9 +1,10 @@
 """Georgia Tech schedule/catalog retrieval.
 
 Scrapes the public GT "Oscar" dynamic schedule search
-(registration.gatech.edu/pls/bprod/bwckschd.p_disp_dyn_sched), the same
-public, unauthenticated tool that community projects like GT Scheduler use.
-No GT login is ever attempted here - the dynamic schedule search is public.
+(oscar.gatech.edu/pls/bprod/bwckschd.p_get_crse_unsec), the same public,
+unauthenticated endpoint community projects like GT Scheduler use. No GT
+login is ever attempted here - the dynamic schedule search is public
+("_unsec" is Banner's own naming for "unsecured", i.e. no-auth-required).
 
 If the site is unreachable or its markup changes, this module degrades to
 returning an empty, clearly-flagged "unavailable" result rather than
@@ -14,6 +15,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from typing import Optional
+from urllib.parse import urlencode
 
 import httpx
 from bs4 import BeautifulSoup
@@ -58,30 +60,59 @@ def _client() -> httpx.Client:
 
 
 def _fetch_schedule_html(term_code: str, subject: str, course_number: str) -> tuple[str, Optional[str]]:
-    """Perform the actual GET against Oscar's dynamic schedule search.
+    """Perform the actual POST against Oscar's dynamic schedule search.
+
+    This form-encodes each field the real HTML form's <select> elements
+    submit twice: once as their "dummy" placeholder option (the default
+    selection) and once as the actual search value - the same shape as a
+    genuine browser form submission. Verified against the request body an
+    actively-maintained, real-world scraper (github.com/gt-scheduler/crawler)
+    sends, since this session's own network policy blocks oscar.gatech.edu
+    directly. Also verified that endpoint is GET/POST without login: that
+    same project has scraped it unauthenticated for years.
 
     Returns (status, html_or_none). Never raises for network-level failures.
     """
     url = f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec"
-    params = {
-        "term_in": term_code,
-        "sel_subj": ["dummy", subject],
-        "sel_crse": course_number,
-        "sel_title": "",
-        "sel_schd": "dummy",
-        "sel_from_cred": "",
-        "sel_to_cred": "",
-        "sel_camp": "dummy",
-        "sel_ptrm": "dummy",
-        "sel_instr": "dummy",
-        "sel_attr": "dummy",
-        "sel_levl": "dummy",
-        "sel_insm": "dummy",
-        "sel_link": "dummy",
-    }
+    form_data = [
+        ("sel_subj", "dummy"),
+        ("sel_day", "dummy"),
+        ("sel_schd", "dummy"),
+        ("sel_insm", "dummy"),
+        ("sel_camp", "dummy"),
+        ("sel_levl", "dummy"),
+        ("sel_sess", "dummy"),
+        ("sel_instr", "dummy"),
+        ("sel_ptrm", "dummy"),
+        ("sel_attr", "dummy"),
+        ("term_in", term_code),
+        ("sel_subj", subject),
+        ("sel_crse", course_number),
+        ("sel_title", ""),
+        ("sel_schd", "%"),
+        ("sel_from_cred", ""),
+        ("sel_to_cred", ""),
+        ("sel_camp", "%"),
+        ("sel_ptrm", "%"),
+        ("sel_instr", "%"),
+        ("sel_attr", "%"),
+        ("begin_hh", "0"),
+        ("begin_mi", "0"),
+        ("begin_ap", "a"),
+        ("end_hh", "0"),
+        ("end_mi", "0"),
+        ("end_ap", "a"),
+    ]
     try:
+        # httpx's `data=` only accepts a Mapping (which can't hold the
+        # duplicate keys Oscar's real form submits, e.g. two `sel_subj`
+        # values) - urlencode the pairs ourselves and send as a raw body
+        # with the form content type instead.
+        body = urlencode(form_data)
         with _client() as client:
-            resp = client.get(url, params=params)
+            resp = client.post(
+                url, content=body, headers={"Content-Type": "application/x-www-form-urlencoded"}
+            )
         if resp.status_code == 200:
             return "ok", resp.text
         if resp.status_code in (401, 403):

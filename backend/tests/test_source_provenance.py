@@ -51,7 +51,7 @@ def client():
 
 @respx.mock
 def test_grade_outcomes_component_in_api_response_carries_a_source_url(client):
-    respx.get(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(return_value=httpx.Response(200, text=_load(SCHEDULE_FIXTURE)))
+    respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(return_value=httpx.Response(200, text=_load(SCHEDULE_FIXTURE)))
     respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/CS/1301").mock(return_value=httpx.Response(200, json=GRADE_RECORDS))
     respx.get("https://html.duckduckgo.com/html/").mock(return_value=httpx.Response(200, text="<html></html>"))
     respx.get("https://www.reddit.com/r/gatech/search.json").mock(return_value=httpx.Response(200, json={"data": {"children": []}}))
@@ -102,7 +102,7 @@ def test_syllabus_signal_dataclass_carries_source_url():
 
 @respx.mock
 def test_comparison_row_course_gpa_has_a_traceable_source(client):
-    respx.get(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(return_value=httpx.Response(200, text=_load(SCHEDULE_FIXTURE)))
+    respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(return_value=httpx.Response(200, text=_load(SCHEDULE_FIXTURE)))
     respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/CS/1301").mock(
         return_value=httpx.Response(200, json=[
             {"instructor": "Simpkins, Charles A", "term": "202408", "a": 130, "b": 35, "c": 10, "d": 2, "f": 1, "w": 8, "total": 186, "gpa": 3.55},

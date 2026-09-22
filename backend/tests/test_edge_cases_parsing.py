@@ -32,7 +32,7 @@ def _isolated_db(tmp_path, monkeypatch):
 
 @respx.mock
 def test_one_professor_teaching_multiple_sections_math1552():
-    respx.get(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
+    respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
         return_value=httpx.Response(200, text=_load("oscar_math1552_sample.html"))
     )
     result = schedule_mod.get_sections_for_course("202508", "MATH", "1552")
@@ -44,7 +44,7 @@ def test_one_professor_teaching_multiple_sections_math1552():
 
 def test_oscar_math1552_includes_tba_section_without_professor_key():
     with respx.mock:
-        respx.get(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
+        respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
             return_value=httpx.Response(200, text=_load("oscar_math1552_sample.html"))
         )
         result = schedule_mod.get_sections_for_course("202508", "MATH", "1552")
@@ -57,7 +57,7 @@ def test_oscar_math1552_includes_tba_section_without_professor_key():
 
 @respx.mock
 def test_course_with_single_available_professor_phys2211():
-    respx.get(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
+    respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
         return_value=httpx.Response(200, text=_load("oscar_phys2211_sample.html"))
     )
     result = schedule_mod.get_sections_for_course("202508", "PHYS", "2211")
@@ -70,7 +70,7 @@ def test_course_with_single_available_professor_phys2211():
 
 @respx.mock
 def test_changed_html_structure_degrades_to_unavailable_not_crash():
-    respx.get(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
+    respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
         return_value=httpx.Response(200, text=_load("oscar_changed_structure.html"))
     )
     result = schedule_mod.get_sections_for_course("202508", "CS", "1301")
