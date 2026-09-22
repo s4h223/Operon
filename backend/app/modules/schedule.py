@@ -12,6 +12,7 @@ inventing instructors.
 """
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from typing import Optional
@@ -23,6 +24,8 @@ from bs4 import BeautifulSoup
 from app.config import GT_SCHEDULE_BASE, HTTP_TIMEOUT_SECONDS, HTTP_USER_AGENT
 from app.modules.cache import cached_fetch, now_iso
 from app.modules.normalization import normalize_professor_name, professor_key
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -117,8 +120,13 @@ def _fetch_schedule_html(term_code: str, subject: str, course_number: str) -> tu
             return "ok", resp.text
         if resp.status_code in (401, 403):
             return "blocked", None
+        logger.warning(
+            "GT schedule search: unexpected status %s from %s (body starts: %r)",
+            resp.status_code, url, resp.text[:200],
+        )
         return "error", None
-    except httpx.HTTPError:
+    except httpx.HTTPError as exc:
+        logger.warning("GT schedule search: request to %s failed: %s: %s", url, type(exc).__name__, exc)
         return "error", None
 
 
