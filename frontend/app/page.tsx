@@ -26,6 +26,7 @@ import type {
 } from "@/lib/types";
 
 type Step =
+  | "landing"
   | "loading_semesters"
   | "semester"
   | "course_search"
@@ -70,6 +71,8 @@ function ResearchProgress() {
   );
 }
 
+const BACKEND_UNREACHABLE = "Couldn't reach the FYVE backend. Is it running?";
+
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <main className="min-h-screen flex flex-col items-center px-6 py-14" style={{ background: "var(--bg)" }}>
@@ -82,7 +85,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 }
 
 export default function Home() {
-  const [step, setStep] = useState<Step>("loading_semesters");
+  const [step, setStep] = useState<Step>("landing");
   const [errorMessage, setErrorMessage] = useState<string>("");
 
   const [semesters, setSemesters] = useState<Semester[]>([]);
@@ -104,15 +107,38 @@ export default function Home() {
   const [compareKeys, setCompareKeys] = useState<string[]>([]);
   const [comparisonRows, setComparisonRows] = useState<ComparisonRow[] | null>(null);
 
+  const [semestersReady, setSemestersReady] = useState(false);
+  const [semestersFailed, setSemestersFailed] = useState(false);
+
   // --- initial load ---
+  // Semesters are fetched while the landing page is on screen, so clicking
+  // through usually lands straight on the picker with nothing to wait for.
   useEffect(() => {
     fetchSemesters()
       .then((res) => {
         setSemesters(res.semesters);
-        setStep("semester");
+        setSemestersReady(true);
+        // Only advance if the user is already waiting on this fetch.
+        setStep((current) => (current === "loading_semesters" ? "semester" : current));
       })
-      .catch(() => setErrorFatal("Couldn't reach the FYVE backend. Is it running?"));
+      .catch(() => {
+        setSemestersFailed(true);
+        setErrorMessage(BACKEND_UNREACHABLE);
+        // This fetch runs in the background behind the landing page. Only
+        // take over the screen if the user is actually waiting on it -
+        // otherwise a backend that's still warming up would replace the
+        // landing page with an error before they'd clicked anything.
+        setStep((current) => (current === "loading_semesters" ? "error" : current));
+      });
   }, []);
+
+  function handleGetStarted() {
+    if (semestersFailed) {
+      setErrorFatal(BACKEND_UNREACHABLE);
+      return;
+    }
+    setStep(semestersReady ? "semester" : "loading_semesters");
+  }
 
   function setErrorFatal(msg: string) {
     setErrorMessage(msg);
@@ -246,6 +272,30 @@ export default function Home() {
 
   // ---------------------------------------------------------------------
 
+  if (step === "landing") {
+    return (
+      <main
+        className="min-h-screen flex flex-col items-center justify-center text-center px-6 py-16"
+        style={{ background: "var(--bg)" }}
+      >
+        <div className="landing-glow" aria-hidden="true" />
+        <div className="relative flex flex-col items-center gap-8" style={{ maxWidth: "40rem" }}>
+          <Logo height={190} />
+
+          <h1 className="text-5xl font-bold leading-tight">
+            Pick the professor,
+            <br />
+            <span className="gradient-text">not just the class.</span>
+          </h1>
+
+          <button className="btn-primary text-xl" style={{ padding: "1.1rem 3rem" }} onClick={handleGetStarted}>
+            Find my professor
+          </button>
+        </div>
+      </main>
+    );
+  }
+
   if (
     step === "loading_semesters" ||
     step === "loading_professors" ||
@@ -263,25 +313,38 @@ export default function Home() {
             ? "Building your comparison"
             : "Gathering evidence";
 
+    // Laid out on its own rather than inside <Shell>, so the logo, spinner
+    // and copy sit as one evenly-spaced group centered in the viewport
+    // instead of the logo being pinned to the top.
     return (
-      <Shell>
-        <div className="text-center max-w-md flex flex-col items-center" style={{ color: "var(--text-muted)" }}>
-          <div className="spinner mb-8" />
-          <div className="text-2xl font-semibold mb-3 loading-dots" style={{ color: "var(--text)" }}>
+      <main
+        className="min-h-screen flex flex-col items-center justify-center gap-10 px-6 py-10"
+        style={{ background: "var(--bg)" }}
+      >
+        <Logo height={120} />
+        <div className="spinner" />
+        <div
+          className="text-center flex flex-col items-center gap-4"
+          style={{ color: "var(--text-muted)", maxWidth: "34rem" }}
+        >
+          <div className="text-2xl font-semibold loading-dots" style={{ color: "var(--text)" }}>
             {title}
           </div>
           {isDeepResearch && (
             <>
-              <p className="text-base mb-7">
+              <p className="text-base">
                 Researching grades, syllabi, and public discussion for each professor. This can take a
                 little while - it&apos;s doing real research, not a quick lookup.
+              </p>
+              <p className="text-base font-semibold" style={{ color: "var(--text)" }}>
+                Keep this tab open while it works - closing it stops the search.
               </p>
               <ResearchProgress />
             </>
           )}
-          <div className="progress-track mt-7" />
         </div>
-      </Shell>
+        <div className="progress-track" style={{ maxWidth: "28rem" }} />
+      </main>
     );
   }
 
@@ -468,7 +531,13 @@ export default function Home() {
       <Shell>
         <ResultsView
           bestMatch={recommendation.best_match}
-          alternatives={recommendation.alternatives}
+          // Everyone teaching the course except the winner, best first,
+          // with the unscorable ones last - `all_ranked` already carries
+          // that order, and falling back to `alternatives` only matters
+          // for an older backend that doesn't send it.
+          others={(recommendation.all_ranked ?? recommendation.alternatives).filter(
+            (p) => p.professor_key !== recommendation.best_match?.professor_key,
+          )}
           compareKeys={compareKeys}
           onCompareToggle={toggleCompare}
           onCompare={handleCompare}

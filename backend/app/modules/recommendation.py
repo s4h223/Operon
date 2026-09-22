@@ -82,4 +82,19 @@ def recommend(profiles: list[ProfessorProfile], preferences: Preferences, max_al
     best = ranked[0]
     alternatives = ranked[1 : 1 + max_alternatives]
 
-    return RecommendationResult(status="ok", best_match=best, alternatives=alternatives, all_ranked=ranked)
+    # Professors with no scorable evidence still belong in `all_ranked`,
+    # after everyone who could be scored. They're teaching the course, so
+    # silently dropping them makes the results page look like it forgot
+    # about them; the UI lists them as "couldn't be scored" instead. They
+    # are never given a fabricated position among the scored ones.
+    unscorable = sorted(
+        (e for e in evaluated if e.personal_fit is None),
+        key=lambda e: e.display_name,
+    )
+
+    return RecommendationResult(
+        status="ok",
+        best_match=best,
+        alternatives=alternatives,
+        all_ranked=ranked + unscorable,
+    )

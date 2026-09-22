@@ -34,6 +34,9 @@ body {
 
 body {
   margin: 0;
+  /* Clearance for the fixed GT marker pinned at the bottom centre, so page
+     content can always scroll clear of it. */
+  padding-bottom: 6.5rem;
 }
 
 .gradient-text {
@@ -45,6 +48,54 @@ body {
 
 .gradient-bg {
   background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
+}
+
+/* --- persistent GT marker --- */
+
+.gt-mark {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  opacity: 0.45;
+  pointer-events: none; /* never swallow a click meant for the content */
+  z-index: 1;
+}
+
+/* Sized here rather than via the img's width/height attributes: Tailwind's
+   preflight sets `height: auto` on images, which overrides those attributes
+   and collapses the mark to zero height. */
+.gt-mark img {
+  height: 58px;
+  width: auto;
+}
+
+/* On a short viewport the marker would collide with the content, so it
+   steps out of the way rather than overlapping it. */
+@media (max-height: 640px) {
+  .gt-mark {
+    display: none;
+  }
+}
+
+/* --- landing --- */
+
+/* A soft accent bloom behind the hero, so the landing page isn't a flat
+   black rectangle. Purely decorative and non-interactive. */
+.landing-glow {
+  position: fixed;
+  top: 18%;
+  left: 50%;
+  width: min(900px, 120vw);
+  height: min(900px, 120vw);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(111, 143, 240, 0.17) 0%, rgba(111, 143, 240, 0.05) 45%, transparent 70%);
+  z-index: 0;
 }
 
 /* --- loading indicators --- */

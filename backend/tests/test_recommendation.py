@@ -61,3 +61,35 @@ def test_recommend_explanation_has_reasons_grounded_in_evidence():
     assert result.best_match is not None
     assert len(result.best_match.explanation.reasons) >= 1
     assert all(isinstance(r, str) and r for r in result.best_match.explanation.reasons)
+
+
+def test_unscorable_professors_are_listed_after_the_scored_ones():
+    # A professor teaching the course with no usable public evidence must
+    # still appear in all_ranked - dropping them made the results page look
+    # like it had forgotten professors the student can actually register
+    # for. They must never be interleaved among the scored ones, though.
+    scored = _profile("scored_prof", "Scored Prof", gpa=3.4, n=120)
+    ghost_b = ProfessorProfile(professor_key="ghost_b", display_name="Ghost B", signals=ProfessorSignals())
+    ghost_a = ProfessorProfile(professor_key="ghost_a", display_name="Ghost A", signals=ProfessorSignals())
+
+    result = recommend([ghost_b, scored, ghost_a], Preferences(priority="balanced"))
+
+    assert result.status == "ok"
+    assert result.best_match.professor_key == "scored_prof"
+
+    keys = [r.professor_key for r in result.all_ranked]
+    assert keys == ["scored_prof", "ghost_a", "ghost_b"]  # scored first, then unscorable by name
+    assert [r.personal_fit for r in result.all_ranked] == [result.best_match.personal_fit, None, None]
+
+    # Unscorable professors are never offered as "alternatives" to pick from.
+    assert all(a.personal_fit is not None for a in result.alternatives)
+
+
+def test_all_ranked_contains_every_professor_teaching_the_course():
+    profiles = [
+        _profile("a", "A", gpa=3.5, n=100),
+        _profile("b", "B", gpa=3.0, n=100),
+        ProfessorProfile(professor_key="c", display_name="C", signals=ProfessorSignals()),
+    ]
+    result = recommend(profiles, Preferences(priority="balanced"))
+    assert {r.professor_key for r in result.all_ranked} == {"a", "b", "c"}

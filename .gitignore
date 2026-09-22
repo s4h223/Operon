@@ -47,5 +47,8 @@ backend/__pycache__/
 **/__pycache__/
 *.pyc
 backend/data/*.sqlite3
+# WAL journaling writes these sidecar files next to the database.
+backend/data/*.sqlite3-shm
+backend/data/*.sqlite3-wal
 backend/.pytest_cache/
 

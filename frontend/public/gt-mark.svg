@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 122 76" fill="none" role="img" aria-label="Georgia Tech">
+  <!-- Original geometric GT monogram drawn as stroked paths (font-independent).
+       This is NOT Georgia Tech's official interlocking-GT trademark; swap this
+       file for an officially licensed asset if this is ever distributed. -->
+  <g stroke="#B3A369" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <!-- G -->
+    <path d="M52 22 A22 22 0 1 0 52 58 L52 42 L38 42" />
+    <!-- T -->
+    <path d="M68 20 L110 20" />
+    <path d="M89 20 L89 58" />
+  </g>
+</svg>

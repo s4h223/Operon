@@ -130,9 +130,17 @@ CREATE TABLE IF NOT EXISTS http_cache (
 
 
 def _connect() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
+    # `timeout` is how long a write waits on a lock held by another
+    # connection before raising "database is locked". The research pass runs
+    # its fetches on a thread pool and every one of them writes an
+    # http_cache row, so the default would surface as spurious failures
+    # under load. WAL lets those readers and writers overlap instead of
+    # serializing on a single global lock.
+    conn = sqlite3.connect(DB_PATH, timeout=30.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA busy_timeout = 30000")
     return conn
 
 

@@ -14,7 +14,9 @@ final recommendation within one user session.
 """
 from __future__ import annotations
 
+import logging
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional
 
 from app.modules import grades as grades_mod
@@ -28,6 +30,8 @@ from app.modules.normalization import normalize_course_code
 from app.modules.recommendation import ProfessorProfile
 from app.modules.scoring import GradeSignal, ProfessorSignals, SyllabusSignal, TraitObservation
 
+logger = logging.getLogger(__name__)
+
 # How many of `web_discovery.build_queries`' variants to actually run per
 # professor. `build_queries` returns the full spec-listed combinatorial set
 # (professor x course x research term, plus a course-agnostic professor
@@ -39,6 +43,43 @@ DEFAULT_MAX_QUERIES_PER_PROFESSOR = 17
 
 _PROFILE_CACHE: dict[tuple, tuple[float, list[ProfessorProfile]]] = {}
 _PROFILE_CACHE_TTL_SECONDS = 600
+
+# The research pass is almost entirely waiting on HTTP: one professor alone
+# is (up to 17 queries x 2 sources) = 34 independent requests, and a course
+# with five professors is ~170. Run sequentially that's minutes of dead
+# time. These are independent I/O-bound fetches, so a bounded thread pool
+# collapses it to roughly (total / SEARCH_CONCURRENCY) round-trips. Kept
+# deliberately modest: the point is to stop being needlessly slow, not to
+# hammer DuckDuckGo or Reddit with 170 simultaneous requests.
+SEARCH_CONCURRENCY = 8
+# Professors are also researched in parallel; total in-flight requests is
+# roughly SEARCH_CONCURRENCY x PROFESSOR_CONCURRENCY, so both stay small.
+PROFESSOR_CONCURRENCY = 4
+
+
+def _run_searches(
+    sources: list[web_discovery.WebSource], queries: list[str]
+) -> list[web_discovery.WebResult]:
+    """Fan every (source, query) pair out across a bounded thread pool.
+
+    A single query failing (timeout, rate limit, parse error) must never
+    sink the whole research pass - each source already degrades to an empty
+    list on network trouble, and anything that still escapes is dropped
+    here so the remaining evidence is kept.
+    """
+    tasks = [(source, query) for source in sources for query in queries]
+    if not tasks:
+        return []
+
+    results: list[web_discovery.WebResult] = []
+    with ThreadPoolExecutor(max_workers=min(SEARCH_CONCURRENCY, len(tasks))) as pool:
+        futures = [pool.submit(source.search, query) for source, query in tasks]
+        for future in as_completed(futures):
+            try:
+                results.extend(future.result())
+            except Exception as exc:  # noqa: BLE001 - one bad query isn't fatal
+                logger.warning("A discovery query failed and was skipped: %s", exc)
+    return results
 
 
 def _cache_key(term_code: str, subject: str, course_number: str, professor_keys: Optional[frozenset]) -> tuple:
@@ -73,11 +114,7 @@ def _build_signals_for_professor(
 
     queries = web_discovery.build_queries(display_name, course_code, course_title)[:max_queries]
     sources: list[web_discovery.WebSource] = [web_discovery.DuckDuckGoSource(), reddit_ingest.RedditSource()]
-    raw_results: list[web_discovery.WebResult] = []
-    for source in sources:
-        for query in queries:
-            raw_results.extend(source.search(query))
-    results = web_discovery.dedupe_results(raw_results)
+    results = web_discovery.dedupe_results(_run_searches(sources, queries))
 
     trait_observations: list[TraitObservation] = []
     evidence_examples: dict[str, list[str]] = {}
@@ -178,30 +215,46 @@ def gather_profiles(
     grade_result = grades_mod.get_grade_history(subject, course_number)
     all_grade_rows = grade_result.rows if grade_result.status == "ok" else []
 
-    profiles: list[ProfessorProfile] = []
-    for prof_key, sections in by_professor.items():
+    def build_profile(prof_key: str, sections: list[schedule_mod.SectionInfo]) -> ProfessorProfile:
         display_name = sections[0].professor_display
         prof_grade_rows = grades_mod.rows_for_professor(all_grade_rows, prof_key)
-        modality = sections[0].modality
 
         signals, evidence_examples = _build_signals_for_professor(
-            display_name, subject, course_number, course_title, prof_grade_rows, modality,
-            sections[0].source_url, max_queries,
+            display_name, subject, course_number, course_title, prof_grade_rows,
+            sections[0].modality, sections[0].source_url, max_queries,
         )
-        profiles.append(
-            ProfessorProfile(
-                professor_key=prof_key,
-                display_name=display_name,
-                signals=signals,
-                evidence_examples=evidence_examples,
-                section_meta={
-                    "meeting_days": sections[0].meeting_days,
-                    "meeting_time": sections[0].meeting_time,
-                    "term_code": term_code,
-                    "crns": [s.crn for s in sections],
-                },
-            )
+        return ProfessorProfile(
+            professor_key=prof_key,
+            display_name=display_name,
+            signals=signals,
+            evidence_examples=evidence_examples,
+            section_meta={
+                "meeting_days": sections[0].meeting_days,
+                "meeting_time": sections[0].meeting_time,
+                "term_code": term_code,
+                "crns": [s.crn for s in sections],
+            },
         )
+
+    # Professors are researched concurrently too, since one professor's
+    # fetches never inform another's. Each of these fans out again inside
+    # `_run_searches`, so the pool is kept small to bound total in-flight
+    # requests rather than multiplying the two levels together.
+    profiles: list[ProfessorProfile] = []
+    if by_professor:
+        with ThreadPoolExecutor(max_workers=min(PROFESSOR_CONCURRENCY, len(by_professor))) as pool:
+            futures = {
+                pool.submit(build_profile, prof_key, sections): prof_key
+                for prof_key, sections in by_professor.items()
+            }
+            for future in as_completed(futures):
+                try:
+                    profiles.append(future.result())
+                except Exception as exc:  # noqa: BLE001 - one professor failing isn't fatal
+                    logger.warning("Research failed for professor %s: %s", futures[future], exc)
+
+    # Keep a stable, deterministic order regardless of completion order.
+    profiles.sort(key=lambda p: p.professor_key)
 
     _PROFILE_CACHE[key] = (time.time(), profiles)
     return profiles
