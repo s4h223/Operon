@@ -28,12 +28,18 @@ def _isolated_db(tmp_path, monkeypatch):
     yield
 
 
+def _mock_session_and_term_steps():
+    respx.get(GT_SCHEDULE_BASE).mock(return_value=httpx.Response(200, text="<html></html>"))
+    respx.post(f"{GT_SCHEDULE_BASE}/ssb/term/search").mock(return_value=httpx.Response(200, json={"success": True}))
+
+
 # --- OSCAR: one professor teaching multiple sections -----------------------
 
 @respx.mock
 def test_one_professor_teaching_multiple_sections_math1552():
-    respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
-        return_value=httpx.Response(200, text=_load("oscar_math1552_sample.html"))
+    _mock_session_and_term_steps()
+    respx.get(f"{GT_SCHEDULE_BASE}/ssb/searchResults/searchResults").mock(
+        return_value=httpx.Response(200, text=_load("banner_math1552_sample.json"))
     )
     result = schedule_mod.get_sections_for_course("202508", "MATH", "1552")
     assert result.status == "ok"
@@ -44,21 +50,24 @@ def test_one_professor_teaching_multiple_sections_math1552():
 
 def test_oscar_math1552_includes_tba_section_without_professor_key():
     with respx.mock:
-        respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
-            return_value=httpx.Response(200, text=_load("oscar_math1552_sample.html"))
+        _mock_session_and_term_steps()
+        respx.get(f"{GT_SCHEDULE_BASE}/ssb/searchResults/searchResults").mock(
+            return_value=httpx.Response(200, text=_load("banner_math1552_sample.json"))
         )
         result = schedule_mod.get_sections_for_course("202508", "MATH", "1552")
     tba = [s for s in result.sections if s.professor_display == "TBA"]
     assert len(tba) == 1
     assert tba[0].professor_key == ""  # TBA never gets a fabricated professor_key
+    assert tba[0].modality == "online"  # WEB building flagged even with no faculty
 
 
 # --- OSCAR: course with only one available professor -----------------------
 
 @respx.mock
 def test_course_with_single_available_professor_phys2211():
-    respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
-        return_value=httpx.Response(200, text=_load("oscar_phys2211_sample.html"))
+    _mock_session_and_term_steps()
+    respx.get(f"{GT_SCHEDULE_BASE}/ssb/searchResults/searchResults").mock(
+        return_value=httpx.Response(200, text=_load("banner_phys2211_sample.json"))
     )
     result = schedule_mod.get_sections_for_course("202508", "PHYS", "2211")
     assert result.status == "ok"
@@ -66,17 +75,18 @@ def test_course_with_single_available_professor_phys2211():
     assert professor_keys == {"anjali_patel"}
 
 
-# --- OSCAR: changed HTML structure (site redesign) --------------------------
+# --- OSCAR: changed response structure (API redesign) -----------------------
 
 @respx.mock
-def test_changed_html_structure_degrades_to_unavailable_not_crash():
-    respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
-        return_value=httpx.Response(200, text=_load("oscar_changed_structure.html"))
+def test_changed_response_structure_degrades_to_unavailable_not_crash():
+    _mock_session_and_term_steps()
+    respx.get(f"{GT_SCHEDULE_BASE}/ssb/searchResults/searchResults").mock(
+        return_value=httpx.Response(200, text=_load("banner_changed_structure.json"))
     )
     result = schedule_mod.get_sections_for_course("202508", "CS", "1301")
-    # No exception, and no fabricated instructor despite the page clearly
-    # containing "Simpkins" in prose - the parser only trusts its known
-    # <caption>/<table> structure.
+    # No exception, and no fabricated instructor despite the payload clearly
+    # containing "Simpkins" under a differently-shaped key - the parser
+    # only trusts the known "data" array shape.
     assert result.status == "unavailable"
     assert result.sections == []
 

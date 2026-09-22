@@ -1,0 +1,66 @@
+{
+  "success": true,
+  "totalCount": 2,
+  "data": [
+    {
+      "courseReferenceNumber": "12345",
+      "subject": "CS",
+      "subjectDescription": "Computer Science",
+      "courseNumber": "1301",
+      "courseTitle": "Intro to Computing",
+      "sequenceNumber": "A",
+      "term": "202508",
+      "termDesc": "Fall 2025",
+      "scheduleTypeDescription": "Lecture",
+      "campusDescription": "Atlanta Campus",
+      "instructionalMethodDescription": "Face-to-Face",
+      "maximumEnrollment": 120,
+      "enrollment": 118,
+      "faculty": [
+        {"displayName": "Simpkins, Charles A", "primaryIndicator": true, "emailAddress": "csimpkins@gatech.edu"}
+      ],
+      "meetingsFaculty": [
+        {
+          "meetingTime": {
+            "beginTime": "0935",
+            "endTime": "1025",
+            "monday": true, "tuesday": false, "wednesday": true, "thursday": false, "friday": true,
+            "saturday": false, "sunday": false,
+            "building": "Klaus", "room": "1443",
+            "meetingTypeDescription": "Lecture"
+          }
+        }
+      ]
+    },
+    {
+      "courseReferenceNumber": "23456",
+      "subject": "CS",
+      "subjectDescription": "Computer Science",
+      "courseNumber": "1301",
+      "courseTitle": "Intro to Computing",
+      "sequenceNumber": "B",
+      "term": "202508",
+      "termDesc": "Fall 2025",
+      "scheduleTypeDescription": "Lecture",
+      "campusDescription": "Atlanta Campus",
+      "instructionalMethodDescription": "Face-to-Face",
+      "maximumEnrollment": 100,
+      "enrollment": 95,
+      "faculty": [
+        {"displayName": "Summet, Jennifer W", "primaryIndicator": true, "emailAddress": "jsummet@gatech.edu"}
+      ],
+      "meetingsFaculty": [
+        {
+          "meetingTime": {
+            "beginTime": "1105",
+            "endTime": "1155",
+            "monday": true, "tuesday": false, "wednesday": true, "thursday": false, "friday": true,
+            "saturday": false, "sunday": false,
+            "building": "Clough", "room": "152",
+            "meetingTypeDescription": "Lecture"
+          }
+        }
+      ]
+    }
+  ]
+}

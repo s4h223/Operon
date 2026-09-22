@@ -17,12 +17,18 @@ from app.modules.teaching_recognition import PUBLIC_RECOGNITION_PAGES
 
 
 FIXTURES_DIR = __file__.rsplit("/", 1)[0] + "/fixtures"
-SCHEDULE_FIXTURE_PATH = FIXTURES_DIR + "/oscar_cs1301_sample.html"
+SCHEDULE_FIXTURE_PATH = FIXTURES_DIR + "/banner_cs1301_sample.json"
+SEARCH_RESULTS_URL = f"{GT_SCHEDULE_BASE}/ssb/searchResults/searchResults"
 
 
 def _load(path: str) -> str:
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
+
+
+def _mock_schedule_session_and_term():
+    respx.get(GT_SCHEDULE_BASE).mock(return_value=httpx.Response(200, text="<html></html>"))
+    respx.post(f"{GT_SCHEDULE_BASE}/ssb/term/search").mock(return_value=httpx.Response(200, json={"success": True}))
 
 
 DUCKDUCKGO_HTML = """
@@ -105,9 +111,8 @@ def client():
 
 
 def _mock_all_external_calls():
-    respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
-        return_value=httpx.Response(200, text=_load(SCHEDULE_FIXTURE_PATH))
-    )
+    _mock_schedule_session_and_term()
+    respx.get(SEARCH_RESULTS_URL).mock(return_value=httpx.Response(200, text=_load(SCHEDULE_FIXTURE_PATH)))
     respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/CS/1301").mock(
         return_value=httpx.Response(200, json=GRADE_RECORDS)
     )
@@ -187,8 +192,9 @@ def test_full_pipeline_compare_endpoint(client):
 
 @respx.mock
 def test_full_pipeline_math1552_one_professor_multiple_sections(client):
-    respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
-        return_value=httpx.Response(200, text=_load(FIXTURES_DIR + "/oscar_math1552_sample.html"))
+    _mock_schedule_session_and_term()
+    respx.get(SEARCH_RESULTS_URL).mock(
+        return_value=httpx.Response(200, text=_load(FIXTURES_DIR + "/banner_math1552_sample.json"))
     )
     respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/MATH/1552").mock(
         return_value=httpx.Response(200, json=[
@@ -220,8 +226,9 @@ def test_full_pipeline_math1552_one_professor_multiple_sections(client):
 
 @respx.mock
 def test_full_pipeline_phys2211_single_professor_no_history_no_discussion(client):
-    respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
-        return_value=httpx.Response(200, text=_load(FIXTURES_DIR + "/oscar_phys2211_sample.html"))
+    _mock_schedule_session_and_term()
+    respx.get(SEARCH_RESULTS_URL).mock(
+        return_value=httpx.Response(200, text=_load(FIXTURES_DIR + "/banner_phys2211_sample.json"))
     )
     respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/PHYS/2211").mock(return_value=httpx.Response(200, json=[]))
     respx.get(DUCKDUCKGO_HTML_BASE).mock(return_value=httpx.Response(200, text="<html><body>no results</body></html>"))
@@ -263,14 +270,15 @@ def test_full_pipeline_acct2101_historical_professor_not_in_current_schedule_is_
     in the current term's Oscar listing must never be surfaced as a
     recommendation candidate - there is no "historical professor" opt-in
     mode yet (see QA_TESTING_STRATEGY.md Known Limitations)."""
-    respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
-        return_value=httpx.Response(200, text=_load(FIXTURES_DIR + "/oscar_acct2101_sample.html"))
+    _mock_schedule_session_and_term()
+    respx.get(SEARCH_RESULTS_URL).mock(
+        return_value=httpx.Response(200, text=_load(FIXTURES_DIR + "/banner_acct2101_sample.json"))
     )
     respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/ACCT/2101").mock(
         return_value=httpx.Response(200, json=[
             {"instructor": "Nguyen, Thomas K", "term": "202408", "a": 40, "b": 30, "c": 15, "d": 3, "f": 2, "w": 5, "total": 95, "gpa": 3.3},
             # "Historical Prof" has rich grade history but does NOT appear
-            # in the oscar_acct2101_sample.html fixture's current sections.
+            # in the banner_acct2101_sample.json fixture's current sections.
             {"instructor": "Okafor, Grace N", "term": "202108", "a": 50, "b": 30, "c": 10, "d": 2, "f": 1, "w": 4, "total": 97, "gpa": 3.5},
         ])
     )

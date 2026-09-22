@@ -41,14 +41,18 @@ CACHE_TTL_SECONDS = {
 # *kinds* of sources should not be added without reviewing robots.txt and
 # terms of service first. No GT authenticated system is ever touched.
 #
-# NOTE: "registration.gatech.edu" (the original guess here) does not exist -
-# confirmed by GT's own DNS returning NXDOMAIN for it. The real, public,
-# unauthenticated host for GT's Banner "Oscar" system is oscar.gatech.edu;
-# independent open-source projects (e.g. github.com/gt-scheduler/crawler,
-# github.com/chris-martin/grouch) have scraped bwckschd.p_get_crse_unsec on
-# this host without any login for years, which is what "_unsec" (unsecured)
-# signals about the endpoint itself.
-GT_SCHEDULE_BASE = "https://oscar.gatech.edu/pls/bprod"
+# NOTE on this URL's history: "registration.gatech.edu" (the original guess)
+# doesn't exist (GT's own DNS returns NXDOMAIN). "oscar.gatech.edu/pls/bprod/
+# bwckschd.p_get_crse_unsec" (the next guess, based on an older open-source
+# scraper) is real but now rejected by GT's Oracle ORDS gateway with
+# NotAuthorizedOrNotFound - GT has since migrated its live public schedule
+# search to the modern Banner 9 Self-Service REST API on a *different* host,
+# confirmed against the current source of github.com/gt-scheduler/crawler-v2
+# (the actively maintained successor to the crawler that used the old path).
+# No login is required for this either - the crawler-v2 project scrapes it
+# unauthenticated; it just needs an anonymous session cookie established via
+# a GET before the search requests, not a GT account.
+GT_SCHEDULE_BASE = "https://registration.banner.gatech.edu/StudentRegistrationSsb"
 COURSE_CRITIQUE_BASE = "https://critique.gatech.edu"
 DUCKDUCKGO_HTML_BASE = "https://html.duckduckgo.com/html/"
 REDDIT_SEARCH_BASE = "https://www.reddit.com/r/gatech/search.json"

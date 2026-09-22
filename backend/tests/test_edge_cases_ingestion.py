@@ -32,11 +32,17 @@ def _isolated_db(tmp_path, monkeypatch):
     yield
 
 
+def _mock_session_and_term_steps():
+    respx.get(GT_SCHEDULE_BASE).mock(return_value=httpx.Response(200, text="<html></html>"))
+    respx.post(f"{GT_SCHEDULE_BASE}/ssb/term/search").mock(return_value=httpx.Response(200, json={"success": True}))
+
+
 # --- website timeout ---------------------------------------------------
 
 @respx.mock
 def test_schedule_timeout_degrades_gracefully():
-    respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(side_effect=httpx.TimeoutException("timed out"))
+    _mock_session_and_term_steps()
+    respx.get(f"{GT_SCHEDULE_BASE}/ssb/searchResults/searchResults").mock(side_effect=httpx.TimeoutException("timed out"))
     result = schedule_mod.get_sections_for_course("202508", "CS", "1301")
     assert result.status == "unavailable"
     assert result.sections == []
@@ -62,7 +68,8 @@ def test_duckduckgo_timeout_returns_empty_list_not_exception():
 @pytest.mark.parametrize("status_code", [404, 429, 500, 502, 503])
 @respx.mock
 def test_schedule_various_http_errors_never_crash(status_code):
-    respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(return_value=httpx.Response(status_code))
+    _mock_session_and_term_steps()
+    respx.get(f"{GT_SCHEDULE_BASE}/ssb/searchResults/searchResults").mock(return_value=httpx.Response(status_code))
     result = schedule_mod.get_sections_for_course("202508", "CS", "1301")
     assert result.status == "unavailable"
 
@@ -76,7 +83,8 @@ def test_reddit_rate_limited_429_returns_empty():
 
 @respx.mock
 def test_connection_reset_mid_request_is_caught():
-    respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(side_effect=httpx.ConnectError("connection reset"))
+    _mock_session_and_term_steps()
+    respx.get(f"{GT_SCHEDULE_BASE}/ssb/searchResults/searchResults").mock(side_effect=httpx.ConnectError("connection reset"))
     result = schedule_mod.get_sections_for_course("202508", "CS", "1301")
     assert result.status == "unavailable"
 
@@ -125,7 +133,8 @@ def test_partial_outage_duckduckgo_down_reddit_up_still_yields_reddit_results():
 def test_partial_outage_schedule_down_does_not_block_grades():
     # Schedule and grades are independent fetches; a schedule outage alone
     # should not prevent grade data from being retrieved by the caller.
-    respx.post(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(return_value=httpx.Response(500))
+    _mock_session_and_term_steps()
+    respx.get(f"{GT_SCHEDULE_BASE}/ssb/searchResults/searchResults").mock(return_value=httpx.Response(500))
     respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/CS/1301").mock(
         return_value=httpx.Response(200, json=[{"instructor": "Simpkins, Charles A", "term": "202408", "a": 10, "b": 5, "c": 1, "d": 0, "f": 0, "w": 1, "total": 17, "gpa": 3.5}])
     )

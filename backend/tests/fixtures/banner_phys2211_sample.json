@@ -1,0 +1,20 @@
+{
+  "success": true,
+  "totalCount": 1,
+  "data": [
+    {
+      "courseReferenceNumber": "40010",
+      "subject": "PHYS",
+      "courseNumber": "2211",
+      "courseTitle": "Introductory Physics I",
+      "sequenceNumber": "A",
+      "term": "202508",
+      "scheduleTypeDescription": "Lecture",
+      "campusDescription": "Atlanta Campus",
+      "faculty": [{"displayName": "Patel, Anjali R", "primaryIndicator": true}],
+      "meetingsFaculty": [
+        {"meetingTime": {"beginTime": "1000", "endTime": "1115", "tuesday": true, "thursday": true, "building": "Howey", "room": "N110"}}
+      ]
+    }
+  ]
+}

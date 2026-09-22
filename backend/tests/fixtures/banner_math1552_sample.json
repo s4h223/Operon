@@ -1,0 +1,63 @@
+{
+  "success": true,
+  "totalCount": 4,
+  "data": [
+    {
+      "courseReferenceNumber": "30001",
+      "subject": "MATH",
+      "courseNumber": "1552",
+      "courseTitle": "Integral Calculus",
+      "sequenceNumber": "A",
+      "term": "202508",
+      "scheduleTypeDescription": "Lecture",
+      "campusDescription": "Atlanta Campus",
+      "faculty": [{"displayName": "Chen, Wei L", "primaryIndicator": true}],
+      "meetingsFaculty": [
+        {"meetingTime": {"beginTime": "0935", "endTime": "1025", "monday": true, "wednesday": true, "friday": true, "building": "Skiles", "room": "154"}}
+      ]
+    },
+    {
+      "courseReferenceNumber": "30002",
+      "subject": "MATH",
+      "courseNumber": "1552",
+      "courseTitle": "Integral Calculus",
+      "sequenceNumber": "B",
+      "term": "202508",
+      "scheduleTypeDescription": "Lecture",
+      "campusDescription": "Atlanta Campus",
+      "faculty": [{"displayName": "Chen, Wei L", "primaryIndicator": true}],
+      "meetingsFaculty": [
+        {"meetingTime": {"beginTime": "1105", "endTime": "1155", "monday": true, "wednesday": true, "friday": true, "building": "Skiles", "room": "154"}}
+      ]
+    },
+    {
+      "courseReferenceNumber": "30003",
+      "subject": "MATH",
+      "courseNumber": "1552",
+      "courseTitle": "Integral Calculus",
+      "sequenceNumber": "C",
+      "term": "202508",
+      "scheduleTypeDescription": "Lecture",
+      "campusDescription": "Atlanta Campus",
+      "faculty": [{"displayName": "Rodriguez, Maria S", "primaryIndicator": true}],
+      "meetingsFaculty": [
+        {"meetingTime": {"beginTime": "1305", "endTime": "1355", "monday": true, "wednesday": true, "friday": true, "building": "Clough", "room": "152"}}
+      ]
+    },
+    {
+      "courseReferenceNumber": "30004",
+      "subject": "MATH",
+      "courseNumber": "1552",
+      "courseTitle": "Integral Calculus",
+      "sequenceNumber": "D",
+      "term": "202508",
+      "scheduleTypeDescription": "Lecture",
+      "campusDescription": "Online Campus",
+      "instructionalMethodDescription": "Web-Based",
+      "faculty": [],
+      "meetingsFaculty": [
+        {"meetingTime": {"beginTime": null, "endTime": null, "building": "WEB", "room": null}}
+      ]
+    }
+  ]
+}

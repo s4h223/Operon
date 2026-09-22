@@ -1,0 +1,34 @@
+{
+  "success": true,
+  "totalCount": 2,
+  "data": [
+    {
+      "courseReferenceNumber": "50001",
+      "subject": "ACCT",
+      "courseNumber": "2101",
+      "courseTitle": "Accounting I",
+      "sequenceNumber": "A",
+      "term": "202508",
+      "scheduleTypeDescription": "Lecture",
+      "campusDescription": "Atlanta Campus",
+      "faculty": [{"displayName": "Nguyen, Thomas K", "primaryIndicator": true}],
+      "meetingsFaculty": [
+        {"meetingTime": {"beginTime": "0800", "endTime": "0915", "tuesday": true, "thursday": true, "building": "Scheller", "room": "201"}}
+      ]
+    },
+    {
+      "courseReferenceNumber": "50002",
+      "subject": "ACCT",
+      "courseNumber": "2101",
+      "courseTitle": "Accounting I",
+      "sequenceNumber": "B",
+      "term": "202508",
+      "scheduleTypeDescription": "Lecture",
+      "campusDescription": "Atlanta Campus",
+      "faculty": [{"displayName": "Whitfield, Laura B", "primaryIndicator": true}],
+      "meetingsFaculty": [
+        {"meetingTime": {"beginTime": "1430", "endTime": "1545", "tuesday": true, "thursday": true, "building": "Scheller", "room": "305"}}
+      ]
+    }
+  ]
+}
