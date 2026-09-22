@@ -75,7 +75,10 @@ const BACKEND_UNREACHABLE = "Couldn't reach the FYVE backend. Is it running?";
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-screen flex flex-col items-center px-6 py-14" style={{ background: "var(--bg)" }}>
+    // pb-32 keeps scrolling content clear of the fixed GT marker. It lives
+    // here rather than on <body> so the landing page stays exactly one
+    // viewport tall instead of always having a scrollbar.
+    <main className="min-h-screen flex flex-col items-center px-6 pt-14 pb-32" style={{ background: "var(--bg)" }}>
       <div className="mb-14">
         <Logo height={120} />
       </div>
@@ -108,36 +111,37 @@ export default function Home() {
   const [comparisonRows, setComparisonRows] = useState<ComparisonRow[] | null>(null);
 
   const [semestersReady, setSemestersReady] = useState(false);
-  const [semestersFailed, setSemestersFailed] = useState(false);
 
   // --- initial load ---
-  // Semesters are fetched while the landing page is on screen, so clicking
-  // through usually lands straight on the picker with nothing to wait for.
+  // Prefetched while the landing page is on screen so clicking through
+  // usually lands straight on the picker with nothing to wait for. A
+  // failure here is deliberately silent: the landing page stays put, and
+  // the click below retries.
   useEffect(() => {
     fetchSemesters()
       .then((res) => {
         setSemesters(res.semesters);
         setSemestersReady(true);
-        // Only advance if the user is already waiting on this fetch.
-        setStep((current) => (current === "loading_semesters" ? "semester" : current));
       })
-      .catch(() => {
-        setSemestersFailed(true);
-        setErrorMessage(BACKEND_UNREACHABLE);
-        // This fetch runs in the background behind the landing page. Only
-        // take over the screen if the user is actually waiting on it -
-        // otherwise a backend that's still warming up would replace the
-        // landing page with an error before they'd clicked anything.
-        setStep((current) => (current === "loading_semesters" ? "error" : current));
-      });
+      .catch(() => undefined);
   }, []);
 
   function handleGetStarted() {
-    if (semestersFailed) {
-      setErrorFatal(BACKEND_UNREACHABLE);
+    if (semestersReady) {
+      setStep("semester");
       return;
     }
-    setStep(semestersReady ? "semester" : "loading_semesters");
+    // Not ready: either the prefetch is still in flight, or it failed
+    // because the backend hadn't finished booting when the page loaded.
+    // Retry now rather than dead-ending on a stale failure.
+    setStep("loading_semesters");
+    fetchSemesters()
+      .then((res) => {
+        setSemesters(res.semesters);
+        setSemestersReady(true);
+        setStep("semester");
+      })
+      .catch(() => setErrorFatal(BACKEND_UNREACHABLE));
   }
 
   function setErrorFatal(msg: string) {
@@ -318,7 +322,7 @@ export default function Home() {
     // instead of the logo being pinned to the top.
     return (
       <main
-        className="min-h-screen flex flex-col items-center justify-center gap-10 px-6 py-10"
+        className="min-h-screen flex flex-col items-center justify-center gap-10 px-6 pt-10 pb-28"
         style={{ background: "var(--bg)" }}
       >
         <Logo height={120} />

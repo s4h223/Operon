@@ -34,9 +34,6 @@ body {
 
 body {
   margin: 0;
-  /* Clearance for the fixed GT marker pinned at the bottom centre, so page
-     content can always scroll clear of it. */
-  padding-bottom: 8rem;
 }
 
 .gradient-text {
@@ -61,7 +58,10 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 0.3rem;
-  opacity: 0.8;
+  /* Full strength: the logo's navy outline sinks into the dark background
+     when it's faded, which reads as dull rather than subtle. */
+  opacity: 1;
+  filter: brightness(1.12);
   pointer-events: none; /* never swallow a click meant for the content */
   z-index: 1;
 }
