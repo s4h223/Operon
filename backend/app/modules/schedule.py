@@ -121,15 +121,19 @@ def _fetch_schedule_json(term_code: str, subject: str, course_number: str) -> tu
             return "ok", resp.text
         if resp.status_code in (401, 403):
             return "blocked", None
-        logger.warning(
-            "GT schedule search: unexpected status %s from %s (body starts: %r)",
-            resp.status_code, _SEARCH_RESULTS_PATH, resp.text[:200],
-        )
+        msg = f"GT schedule search: unexpected status {resp.status_code} from {_SEARCH_RESULTS_PATH} (body starts: {resp.text[:300]!r})"
+        logger.warning(msg)
+        print(msg, flush=True)  # belt-and-suspenders: visible even if logging config swallows the above
         return "error", None
     except httpx.HTTPError as exc:
-        logger.warning(
-            "GT schedule search: request to %s failed: %s: %s", _SEARCH_RESULTS_PATH, type(exc).__name__, exc
-        )
+        msg = f"GT schedule search: request to {_SEARCH_RESULTS_PATH} failed: {type(exc).__name__}: {exc}"
+        logger.warning(msg)
+        print(msg, flush=True)
+        return "error", None
+    except Exception as exc:  # noqa: BLE001 - last-resort visibility while diagnosing a live issue
+        msg = f"GT schedule search: UNEXPECTED non-HTTP exception: {type(exc).__name__}: {exc}"
+        logger.exception(msg)
+        print(msg, flush=True)
         return "error", None
 
 
