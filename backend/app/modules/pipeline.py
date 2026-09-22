@@ -28,12 +28,14 @@ from app.modules.normalization import normalize_course_code
 from app.modules.recommendation import ProfessorProfile
 from app.modules.scoring import GradeSignal, ProfessorSignals, SyllabusSignal, TraitObservation
 
-# How many of `web_discovery.RESEARCH_TERMS` query variants to actually run
-# per professor. The full combinatorial set (spec-listed terms x professor x
-# course) is what `build_queries` returns; running every single one live for
-# every professor would be slow, so the pipeline runs a representative
-# subset. Raise this for deeper (slower) research passes.
-DEFAULT_MAX_QUERIES_PER_PROFESSOR = 6
+# How many of `web_discovery.build_queries`' variants to actually run per
+# professor. `build_queries` returns the full spec-listed combinatorial set
+# (professor x course x research term, plus a course-agnostic professor
+# query) - running all of it live for every professor is what "search the
+# entire web for this professor" means, so the pipeline runs the whole
+# list. Lower this only if research passes need to be faster at the cost of
+# coverage.
+DEFAULT_MAX_QUERIES_PER_PROFESSOR = 17
 
 _PROFILE_CACHE: dict[tuple, tuple[float, list[ProfessorProfile]]] = {}
 _PROFILE_CACHE_TTL_SECONDS = 600

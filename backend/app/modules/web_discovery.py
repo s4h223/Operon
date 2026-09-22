@@ -52,9 +52,15 @@ class WebSource(Protocol):
 
 def build_queries(professor_name: str, course_code: str, course_title: Optional[str] = None) -> list[str]:
     """Combinations of professor + GT + course code/title + research terms,
-    per the product spec's requested query shape."""
+    per the product spec's requested query shape. Also includes a
+    course-agnostic professor query, since general-reputation discussion
+    (e.g. a review site result surfaced by a plain web search) often
+    doesn't mention the specific course number at all."""
     course_code = normalize_course_code(course_code)
-    base_subjects = [f"{professor_name} Georgia Tech {course_code}"]
+    base_subjects = [
+        f"{professor_name} Georgia Tech {course_code}",
+        f"{professor_name} Georgia Tech professor",
+    ]
     if course_title:
         base_subjects.append(f"{professor_name} Georgia Tech {course_title}")
 
