@@ -23,21 +23,32 @@ router = APIRouter(prefix="/api")
 
 def _generate_semesters(count: int = 4) -> list[dict]:
     """GT/Banner term codes are YYYYMM (02 Spring, 05/06 Summer, 08 Fall).
-    Generates the current + upcoming registration terms from today's date -
-    there's no single public "list of terms" endpoint to scrape."""
+    Generates the upcoming registration terms from today's date - there's
+    no single public "list of terms" endpoint to scrape.
+
+    The list starts with the NEXT semester after whichever one is
+    currently in progress, since "what semester are you registering for"
+    means the one you can still register for, not the one already
+    underway (e.g. in the middle of Fall, the list should lead with the
+    upcoming Spring, not the current Fall)."""
     today = date.today()
     sequence = [(2, "Spring"), (5, "Summer"), (8, "Fall")]
     semesters = []
     year = today.year
     # Bucket today's month into the semester currently in progress (Jan-Apr
-    # -> Spring, May-Jul -> Summer, Aug-Dec -> Fall) so the list starts with
-    # the current-or-next registerable term.
+    # -> Spring, May-Jul -> Summer, Aug-Dec -> Fall)...
     if today.month < 5:
         month_idx = 0
     elif today.month < 8:
         month_idx = 1
     else:
         month_idx = 2
+
+    # ...then advance one step to the next registerable term.
+    month_idx += 1
+    if month_idx == len(sequence):
+        month_idx = 0
+        year += 1
 
     for _ in range(count):
         month, label = sequence[month_idx]

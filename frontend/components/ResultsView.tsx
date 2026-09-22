@@ -21,14 +21,14 @@ function ProfessorCard({
   return (
     <div className={`card p-6 ${featured ? "" : "opacity-90"}`} style={featured ? { borderColor: "var(--accent-end)" } : {}}>
       {featured && (
-        <div className="gradient-text font-semibold text-sm mb-2 uppercase tracking-wide">Best Match for You</div>
+        <div className="gradient-text font-semibold text-base mb-2 uppercase tracking-wide">Best Match for You</div>
       )}
       <div className="flex items-baseline justify-between">
-        <h3 className="text-xl font-semibold">{rec.display_name}</h3>
-        <div className="text-2xl font-bold gradient-text">{rec.personal_fit?.toFixed(0)}</div>
+        <h3 className="text-2xl font-semibold">{rec.display_name}</h3>
+        <div className="text-4xl font-bold gradient-text">{rec.personal_fit?.toFixed(0)}</div>
       </div>
       <div className="flex items-center gap-2 mt-1 mb-4">
-        <span className="text-sm" style={{ color: "var(--text-muted)" }}>
+        <span className="text-base" style={{ color: "var(--text-muted)" }}>
           Personal Fit
         </span>
         <ConfidenceBadge label={rec.confidence_label} />
@@ -36,10 +36,10 @@ function ProfessorCard({
 
       {rec.reasons.length > 0 && (
         <div className="mb-3">
-          <div className="text-sm font-semibold mb-1" style={{ color: "var(--text-muted)" }}>
+          <div className="text-base font-semibold mb-1" style={{ color: "var(--text-muted)" }}>
             Why this fits
           </div>
-          <ul className="list-disc pl-5 space-y-1 text-sm">
+          <ul className="list-disc pl-5 space-y-1 text-base">
             {rec.reasons.map((r, i) => (
               <li key={i}>{r}</li>
             ))}
@@ -49,10 +49,10 @@ function ProfessorCard({
 
       {rec.tradeoffs.length > 0 && (
         <div>
-          <div className="text-sm font-semibold mb-1" style={{ color: "var(--text-muted)" }}>
+          <div className="text-base font-semibold mb-1" style={{ color: "var(--text-muted)" }}>
             Tradeoffs
           </div>
-          <ul className="list-disc pl-5 space-y-1 text-sm" style={{ color: "var(--text-muted)" }}>
+          <ul className="list-disc pl-5 space-y-1 text-base" style={{ color: "var(--text-muted)" }}>
             {rec.tradeoffs.map((r, i) => (
               <li key={i}>{r}</li>
             ))}
@@ -61,7 +61,7 @@ function ProfessorCard({
       )}
 
       {onCompareToggle && (
-        <label className="flex items-center gap-2 mt-4 text-sm cursor-pointer" style={{ color: "var(--text-muted)" }}>
+        <label className="flex items-center gap-2 mt-4 text-base cursor-pointer" style={{ color: "var(--text-muted)" }}>
           <input type="checkbox" checked={!!compareSelected} onChange={onCompareToggle} />
           Add to comparison
         </label>
@@ -94,7 +94,7 @@ export default function ResultsView({
 
       {alternatives.length > 0 && (
         <div className="mt-8">
-          <h4 className="text-lg font-semibold mb-4" style={{ color: "var(--text-muted)" }}>
+          <h4 className="text-xl font-semibold mb-4" style={{ color: "var(--text-muted)" }}>
             Next-best alternatives
           </h4>
           <div className="flex flex-col gap-4">

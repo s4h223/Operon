@@ -91,37 +91,70 @@ def _fetch_schedule_html(term_code: str, subject: str, course_number: str) -> tu
         return "error", None
 
 
+# A course-section block starts with a <TH class="ddtitle"> whose text is
+# "{Course Title} - {CRN} - {SUBJECT} {NUMBER} - {Section}" (the title can
+# itself legitimately contain dashes, so the CRN/section are pulled out by
+# anchoring on the 5-digit CRN immediately followed by the known subject
+# and course number, not by splitting on " - "). This is followed, further
+# down the page, by a *separate* <TABLE class="datadisplaytable"> whose
+# <CAPTION> is the generic, non-course-specific text "Scheduled Meeting
+# Times" - the meeting days/time/instructor live in that table's rows, in
+# fixed column order: Type, Time, Days, Where, Date Range, Schedule Type,
+# Instructors. Verified against a real saved Oscar response (a third-party
+# scraper's test fixture: github.com/chris-martin/grouch), since this
+# session's own network policy blocks oscar.gatech.edu directly.
+_DDTITLE_PATTERN_TEMPLATE = r"(\d{{5}})\s*-\s*{subject}\s*{course_number}\s*-\s*(\S+)"
+
+
 def _parse_sections(html: str, term_code: str, subject: str, course_number: str, source_url: str) -> list[SectionInfo]:
     soup = BeautifulSoup(html, "lxml")
     sections: list[SectionInfo] = []
     retrieved_at = now_iso()
 
-    # Oscar renders each section as a <caption> "Subj Crse-Sect ... - CRN"
-    # followed by a details table. Structure verified against the public
-    # GT dynamic schedule search output format.
-    for caption in soup.find_all("caption"):
-        text = caption.get_text(" ", strip=True)
-        crn_match = re.search(r"-\s*(\d{5})\s*-", text)
-        section_match = re.search(rf"{re.escape(subject)}\s*{re.escape(course_number)}\s*-\s*(\S+)", text)
-        crn = crn_match.group(1) if crn_match else ""
-        section_id = section_match.group(1) if section_match else ""
+    ddtitle_pattern = re.compile(
+        _DDTITLE_PATTERN_TEMPLATE.format(subject=re.escape(subject), course_number=re.escape(course_number))
+    )
 
-        table = caption.find_parent("table")
+    for title_th in soup.find_all("th", class_="ddtitle"):
+        title_text = title_th.get_text(" ", strip=True)
+        match = ddtitle_pattern.search(title_text)
+        crn = match.group(1) if match else ""
+        section_id = match.group(2) if match else ""
+
+        # The meeting-times table is the next "Scheduled Meeting Times"
+        # table in document order, but stop looking once another course's
+        # ddtitle appears first (a section with no listed meeting pattern,
+        # e.g. a pure independent-study CRN, has no such table at all).
+        meeting_table = None
+        for node in title_th.find_all_next(["table", "th"]):
+            if node.name == "th" and "ddtitle" in (node.get("class") or []):
+                break
+            if node.name == "table":
+                caption = node.find("caption")
+                if caption and "meeting times" in caption.get_text(strip=True).lower():
+                    meeting_table = node
+                    break
+
         instructor_raw = ""
         meeting_days = None
         meeting_time = None
         modality = None
-        if table is not None:
-            rows = table.find_all("tr")
-            for row in rows:
-                cells = [c.get_text(" ", strip=True) for c in row.find_all(["td", "th"])]
-                if len(cells) >= 7 and re.match(r"^[MTWRFSU]+$|^TBA$", cells[2] or "TBA"):
-                    meeting_days = cells[2]
-                    meeting_time = cells[1]
-                    instructor_cell = cells[6] if len(cells) > 6 else ""
-                    instructor_raw = re.sub(r"\s*\(P\)\s*$", "", instructor_cell).strip()
-                if "instructional method" in " ".join(cells).lower():
-                    modality = cells[-1] if cells else None
+        if meeting_table is not None:
+            for row in meeting_table.find_all("tr"):
+                cells = [c.get_text(" ", strip=True) for c in row.find_all("td")]
+                if len(cells) < 7:
+                    continue  # header row (uses <th>) or a malformed row
+                meeting_time = cells[1]
+                meeting_days = cells[2]
+                where = cells[3]
+                # The "(P)" primary-instructor marker is a separate <ABBR>
+                # element nested inside the cell, so BeautifulSoup's
+                # get_text(" ", ...) inserts spaces around it - tolerate
+                # that ("( P )") rather than only the tight "(P)" form.
+                instructor_raw = re.sub(r"\s*\(\s*P\s*\)\s*$", "", cells[6]).strip()
+                if where.strip().upper() in ("WEB", "ONLINE"):
+                    modality = "online"
+                break  # first meeting row is the primary pattern for this section
 
         if not instructor_raw or instructor_raw.upper() in ("TBA", "STAFF"):
             instructor_raw = instructor_raw or "TBA"

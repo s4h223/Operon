@@ -40,7 +40,15 @@ CACHE_TTL_SECONDS = {
 # Sites Operon/FYVE is permitted to touch. Anything not in this allowlist of
 # *kinds* of sources should not be added without reviewing robots.txt and
 # terms of service first. No GT authenticated system is ever touched.
-GT_SCHEDULE_BASE = "https://registration.gatech.edu/pls/bprod"
+#
+# NOTE: "registration.gatech.edu" (the original guess here) does not exist -
+# confirmed by GT's own DNS returning NXDOMAIN for it. The real, public,
+# unauthenticated host for GT's Banner "Oscar" system is oscar.gatech.edu;
+# independent open-source projects (e.g. github.com/gt-scheduler/crawler,
+# github.com/chris-martin/grouch) have scraped bwckschd.p_get_crse_unsec on
+# this host without any login for years, which is what "_unsec" (unsecured)
+# signals about the endpoint itself.
+GT_SCHEDULE_BASE = "https://oscar.gatech.edu/bprod"
 COURSE_CRITIQUE_BASE = "https://critique.gatech.edu"
 DUCKDUCKGO_HTML_BASE = "https://html.duckduckgo.com/html/"
 REDDIT_SEARCH_BASE = "https://www.reddit.com/r/gatech/search.json"

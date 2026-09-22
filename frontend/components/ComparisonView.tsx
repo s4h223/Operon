@@ -33,10 +33,10 @@ const ROWS: { label: string; render: (r: ComparisonRow) => React.ReactNode }[] =
 export default function ComparisonView({ rows, onBack }: { rows: ComparisonRow[]; onBack: () => void }) {
   return (
     <div className="w-full max-w-4xl mx-auto overflow-x-auto">
-      <button className="btn-secondary text-sm mb-4" onClick={onBack}>
+      <button className="btn-secondary text-base mb-4" onClick={onBack}>
         ← Back to results
       </button>
-      <table className="w-full text-sm border-collapse">
+      <table className="w-full text-base border-collapse">
         <thead>
           <tr>
             <th className="text-left p-3" style={{ color: "var(--text-muted)" }}></th>

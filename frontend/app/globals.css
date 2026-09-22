@@ -18,11 +18,18 @@
   box-sizing: border-box;
 }
 
+html {
+  /* Bigger, bolder base scale - every rem-based Tailwind text/spacing size
+     scales up from here for a more modern, legible feel. */
+  font-size: 18px;
+}
+
 html,
 body {
   background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+  letter-spacing: -0.01em;
 }
 
 body {
@@ -43,54 +50,62 @@ body {
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 28px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
 }
 
 .btn-primary {
   background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
   color: #0b0b12;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 1.05rem;
   border-radius: 999px;
-  padding: 0.75rem 1.75rem;
+  padding: 1rem 2.25rem;
   border: none;
   cursor: pointer;
-  transition: transform 0.15s ease, opacity 0.15s ease;
+  box-shadow: 0 6px 20px rgba(111, 143, 240, 0.35);
+  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
 }
 
 .btn-primary:hover {
-  transform: translateY(-1px);
-  opacity: 0.92;
+  transform: translateY(-2px) scale(1.02);
+  opacity: 0.95;
+  box-shadow: 0 10px 26px rgba(111, 143, 240, 0.45);
 }
 
 .btn-primary:disabled {
   opacity: 0.4;
   cursor: not-allowed;
   transform: none;
+  box-shadow: none;
 }
 
 .btn-secondary {
   background: transparent;
   color: var(--text);
-  border: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 1.05rem;
+  border: 1.5px solid var(--border);
   border-radius: 999px;
-  padding: 0.75rem 1.75rem;
+  padding: 1rem 2.25rem;
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
 }
 
 .btn-secondary:hover {
   border-color: var(--accent-end);
   background: rgba(111, 143, 240, 0.08);
+  transform: translateY(-1px);
 }
 
 .input {
   background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 0.7rem 1rem;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  padding: 1rem 1.4rem;
   color: var(--text);
   width: 100%;
-  font-size: 1rem;
+  font-size: 1.15rem;
 }
 
 .input:focus {
@@ -100,15 +115,17 @@ body {
 
 .option-card {
   background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 1rem 1.25rem;
+  border: 1.5px solid var(--border);
+  border-radius: 22px;
+  padding: 1.35rem 1.6rem;
+  font-size: 1.1rem;
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
 }
 
 .option-card:hover {
   border-color: var(--accent-end);
+  transform: translateY(-1px) scale(1.01);
 }
 
 .option-card.selected {
@@ -123,15 +140,16 @@ body {
 
 .option-card:disabled:hover {
   border-color: var(--border);
+  transform: none;
 }
 
 .badge {
   display: inline-block;
-  padding: 0.2rem 0.65rem;
+  padding: 0.35rem 0.9rem;
   border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border: 1px solid var(--border);
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: 1.5px solid var(--border);
   color: var(--text-muted);
 }
 

@@ -42,9 +42,9 @@ type Step =
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-screen flex flex-col items-center px-6 py-12" style={{ background: "var(--bg)" }}>
-      <div className="mb-12">
-        <Logo height={30} />
+    <main className="min-h-screen flex flex-col items-center px-6 py-14" style={{ background: "var(--bg)" }}>
+      <div className="mb-14">
+        <Logo height={120} />
       </div>
       <div className="w-full flex-1 flex items-start justify-center">{children}</div>
     </main>
@@ -237,7 +237,7 @@ export default function Home() {
     return (
       <Shell>
         <div className="w-full max-w-md">
-          <h2 className="text-2xl font-semibold mb-6">What semester are you registering for?</h2>
+          <h2 className="text-4xl font-semibold mb-6">What semester are you registering for?</h2>
           <div className="flex flex-col gap-3">
             {semesters.map((s) => (
               <button
@@ -261,7 +261,7 @@ export default function Home() {
     return (
       <Shell>
         <div className="w-full max-w-md">
-          <h2 className="text-2xl font-semibold mb-6">Search for a Georgia Tech course</h2>
+          <h2 className="text-4xl font-semibold mb-6">Search for a Georgia Tech course</h2>
           <input
             className="input"
             placeholder="e.g. CS 1301, MATH 1552, ACCT 2101"
@@ -298,12 +298,12 @@ export default function Home() {
     return (
       <Shell>
         <div className="w-full max-w-md text-center">
-          <h2 className="text-2xl font-semibold mb-2">
+          <h2 className="text-4xl font-semibold mb-2">
             {confirmedCourse.course_code}
             {confirmedCourse.title ? ` — ${confirmedCourse.title}` : ""}
           </h2>
           {!confirmedCourse.known && (
-            <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>
+            <p className="text-base mb-4" style={{ color: "var(--text-muted)" }}>
               This course isn&apos;t in our seed catalog, but FYVE will still try to retrieve live data for it.
             </p>
           )}
@@ -324,14 +324,14 @@ export default function Home() {
     return (
       <Shell>
         <div className="w-full max-w-md">
-          <h2 className="text-2xl font-semibold mb-2">Should FYVE evaluate all professors, or only some?</h2>
+          <h2 className="text-4xl font-semibold mb-2">Should FYVE evaluate all professors, or only some?</h2>
           {professorsReason && (
-            <p className="text-sm mb-4" style={{ color: "var(--danger)" }}>
+            <p className="text-base mb-4" style={{ color: "var(--danger)" }}>
               {professorsReason}
             </p>
           )}
           {professors.length > 0 && (
-            <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>
+            <p className="text-base mb-4" style={{ color: "var(--text-muted)" }}>
               {professors.length} professor(s) found teaching this course this term.
             </p>
           )}
@@ -352,7 +352,7 @@ export default function Home() {
     return (
       <Shell>
         <div className="w-full max-w-md">
-          <h2 className="text-2xl font-semibold mb-6">Which professors should FYVE evaluate?</h2>
+          <h2 className="text-4xl font-semibold mb-6">Which professors should FYVE evaluate?</h2>
           <div className="flex flex-col gap-2">
             {professors.map((p) => (
               <label key={p.professor_key} className="option-card flex items-center gap-3 cursor-pointer">
