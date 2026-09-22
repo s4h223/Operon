@@ -171,6 +171,7 @@ def _serialize_recommendation(rec) -> dict:
                 "confidence": c.confidence,
                 "note": c.note,
                 "weight": rec.scoring.weights_used.get(c.name),
+                "sources": c.sources,
             }
             for c in rec.scoring.components
         ],

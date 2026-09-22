@@ -44,6 +44,28 @@ TRAIT_VOCAB: dict[str, list[str]] = {
 
 TRAIT_NAMES = list(TRAIT_VOCAB.keys())
 
+# Most trait keywords (e.g. "disorganized", "unresponsive") are themselves
+# sentiment-laden words VADER already understands, so its negation handling
+# ("not disorganized") naturally produces a nonzero compound score in the
+# right direction. A few keywords are sentiment-neutral factual phrases
+# VADER has no opinion on ("homework heavy", "attendance heavy") - for
+# those, a negation ("not homework heavy") yields compound == 0.0 and this
+# module has no way to know which direction the negated claim points. In
+# that narrow case we skip emitting the signal entirely rather than guess a
+# direction from the keyword alone, which risks scoring the exact opposite
+# of what was said.
+_NEGATION_CUES = ("not", "n't", "never", "hardly", "no longer")
+
+
+def _has_unresolved_negation(lowered_sentence: str, hit_keyword: str) -> bool:
+    if "not" in hit_keyword:
+        return False  # the keyword phrase itself already encodes negation, e.g. "not too much work"
+    idx = lowered_sentence.find(hit_keyword)
+    if idx == -1:
+        return False
+    window = lowered_sentence[max(0, idx - 20):idx]
+    return any(cue in window for cue in _NEGATION_CUES)
+
 
 @dataclass
 class TraitSignal:
@@ -79,6 +101,8 @@ def extract_traits(text: str) -> list[TraitSignal]:
                 continue
             if compound is None:
                 compound = sentiment_compound(sentence)
+            if compound == 0.0 and _has_unresolved_negation(lowered, hit):
+                continue
             signals.append(
                 TraitSignal(
                     trait=trait,

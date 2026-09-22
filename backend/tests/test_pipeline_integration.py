@@ -16,7 +16,8 @@ from app.modules import pipeline
 from app.modules.teaching_recognition import PUBLIC_RECOGNITION_PAGES
 
 
-SCHEDULE_FIXTURE_PATH = __file__.rsplit("/", 1)[0] + "/fixtures/oscar_cs1301_sample.html"
+FIXTURES_DIR = __file__.rsplit("/", 1)[0] + "/fixtures"
+SCHEDULE_FIXTURE_PATH = FIXTURES_DIR + "/oscar_cs1301_sample.html"
 
 
 def _load(path: str) -> str:
@@ -180,3 +181,113 @@ def test_full_pipeline_compare_endpoint(client):
     simpkins_row = next(r for r in rows if r["professor_key"] == "charles_simpkins")
     assert simpkins_row["course_gpa"] is not None
     assert simpkins_row["sections_taught"] >= 1
+
+
+# --- MATH 1552: one professor teaching multiple sections --------------------
+
+@respx.mock
+def test_full_pipeline_math1552_one_professor_multiple_sections(client):
+    respx.get(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
+        return_value=httpx.Response(200, text=_load(FIXTURES_DIR + "/oscar_math1552_sample.html"))
+    )
+    respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/MATH/1552").mock(
+        return_value=httpx.Response(200, json=[
+            {"instructor": "Chen, Wei L", "term": "202408", "a": 60, "b": 50, "c": 20, "d": 5, "f": 3, "w": 10, "total": 138, "gpa": 3.15},
+            {"instructor": "Rodriguez, Maria S", "term": "202408", "a": 30, "b": 40, "c": 25, "d": 8, "f": 5, "w": 9, "total": 108, "gpa": 2.7},
+        ])
+    )
+    respx.get(DUCKDUCKGO_HTML_BASE).mock(return_value=httpx.Response(200, text="<html><body>no results</body></html>"))
+    respx.get(REDDIT_SEARCH_BASE).mock(return_value=httpx.Response(200, json={"data": {"children": []}}))
+    for page_url in PUBLIC_RECOGNITION_PAGES:
+        respx.get(page_url).mock(return_value=httpx.Response(200, text="<html></html>"))
+
+    professors_resp = client.get("/api/courses/MATH/1552/professors", params={"term": "202508"})
+    professors = professors_resp.json()["professors"]
+    chen = next(p for p in professors if p["display_name"] == "Wei Chen")
+    assert len(chen["sections"]) == 2  # two CRNs, one professor
+
+    recommend_resp = client.post(
+        "/api/recommend",
+        json={"term_code": "202508", "subject": "MATH", "course_number": "1552", "professor_keys": None, "preferences": {"priority": "grade"}},
+    )
+    body = recommend_resp.json()
+    assert body["status"] == "ok"
+    # Chen has the stronger recency-weighted GPA and should win on priority=grade.
+    assert body["best_match"]["display_name"] == "Wei Chen"
+
+
+# --- PHYS 2211: course with only one available professor, no history/discussion
+
+@respx.mock
+def test_full_pipeline_phys2211_single_professor_no_history_no_discussion(client):
+    respx.get(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
+        return_value=httpx.Response(200, text=_load(FIXTURES_DIR + "/oscar_phys2211_sample.html"))
+    )
+    respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/PHYS/2211").mock(return_value=httpx.Response(200, json=[]))
+    respx.get(DUCKDUCKGO_HTML_BASE).mock(return_value=httpx.Response(200, text="<html><body>no results</body></html>"))
+    respx.get(REDDIT_SEARCH_BASE).mock(return_value=httpx.Response(200, json={"data": {"children": []}}))
+    for page_url in PUBLIC_RECOGNITION_PAGES:
+        respx.get(page_url).mock(return_value=httpx.Response(200, text="<html></html>"))
+
+    professors_resp = client.get("/api/courses/PHYS/2211/professors", params={"term": "202508"})
+    professors = professors_resp.json()["professors"]
+    assert len(professors) == 1
+    assert professors[0]["display_name"] == "Anjali Patel"
+
+    # A current professor with zero grade history and zero discussion has
+    # no scorable evidence at all -> must not be force-ranked.
+    recommend_resp = client.post(
+        "/api/recommend",
+        json={"term_code": "202508", "subject": "PHYS", "course_number": "2211", "professor_keys": None, "preferences": {"priority": "balanced"}},
+    )
+    body = recommend_resp.json()
+    assert body["status"] == "insufficient_evidence"
+    assert body["best_match"] is None
+
+    # Comparison is meaningless with only one professor - must fail cleanly.
+    compare_resp = client.post(
+        "/api/compare",
+        json={"term_code": "202508", "subject": "PHYS", "course_number": "2211", "professor_keys": ["anjali_patel"], "preferences": {"priority": "balanced"}},
+    )
+    assert compare_resp.status_code == 400
+
+
+# --- ACCT 2101: current professor with grade history, plus a "historical" --
+# professor (has grade history, but is NOT teaching the selected term) -----
+
+@respx.mock
+def test_full_pipeline_acct2101_historical_professor_not_in_current_schedule_is_excluded(client):
+    """Documents current, intentional behavior: FYVE only ever recommends
+    from the selected term's live schedule. A professor who taught this
+    course in a past semester (and therefore has grade history) but is not
+    in the current term's Oscar listing must never be surfaced as a
+    recommendation candidate - there is no "historical professor" opt-in
+    mode yet (see QA_TESTING_STRATEGY.md Known Limitations)."""
+    respx.get(f"{GT_SCHEDULE_BASE}/bwckschd.p_get_crse_unsec").mock(
+        return_value=httpx.Response(200, text=_load(FIXTURES_DIR + "/oscar_acct2101_sample.html"))
+    )
+    respx.get(f"{COURSE_CRITIQUE_BASE}/api/course/ACCT/2101").mock(
+        return_value=httpx.Response(200, json=[
+            {"instructor": "Nguyen, Thomas K", "term": "202408", "a": 40, "b": 30, "c": 15, "d": 3, "f": 2, "w": 5, "total": 95, "gpa": 3.3},
+            # "Historical Prof" has rich grade history but does NOT appear
+            # in the oscar_acct2101_sample.html fixture's current sections.
+            {"instructor": "Okafor, Grace N", "term": "202108", "a": 50, "b": 30, "c": 10, "d": 2, "f": 1, "w": 4, "total": 97, "gpa": 3.5},
+        ])
+    )
+    respx.get(DUCKDUCKGO_HTML_BASE).mock(return_value=httpx.Response(200, text="<html><body>no results</body></html>"))
+    respx.get(REDDIT_SEARCH_BASE).mock(return_value=httpx.Response(200, json={"data": {"children": []}}))
+    for page_url in PUBLIC_RECOGNITION_PAGES:
+        respx.get(page_url).mock(return_value=httpx.Response(200, text="<html></html>"))
+
+    professors_resp = client.get("/api/courses/ACCT/2101/professors", params={"term": "202508"})
+    names = {p["display_name"] for p in professors_resp.json()["professors"]}
+    assert "Grace Okafor" not in names
+    assert names == {"Thomas Nguyen", "Laura Whitfield"}
+
+    recommend_resp = client.post(
+        "/api/recommend",
+        json={"term_code": "202508", "subject": "ACCT", "course_number": "2101", "professor_keys": None, "preferences": {"priority": "balanced"}},
+    )
+    body = recommend_resp.json()
+    all_names = {r["display_name"] for r in body.get("all_ranked", [])} | ({body["best_match"]["display_name"]} if body.get("best_match") else set())
+    assert "Grace Okafor" not in all_names

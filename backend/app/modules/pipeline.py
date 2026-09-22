@@ -54,12 +54,17 @@ def _build_signals_for_professor(
     course_title: Optional[str],
     grade_rows: list[grades_mod.GradeRow],
     modality: Optional[str],
+    modality_source_url: Optional[str],
     max_queries: int,
 ) -> tuple[ProfessorSignals, dict[str, list[str]]]:
     course_code = f"{subject} {course_number}"
 
     grade_signals = [
-        GradeSignal(gpa=r.gpa, sample_size=r.sample_size, recency_weight=text_analysis.recency_weight_from_term_code(r.term_code))
+        GradeSignal(
+            gpa=r.gpa, sample_size=r.sample_size,
+            recency_weight=text_analysis.recency_weight_from_term_code(r.term_code),
+            source_url=r.source_url,
+        )
         for r in grade_rows
         if r.gpa is not None
     ]
@@ -94,6 +99,7 @@ def _build_signals_for_professor(
                     has_attendance_policy=facts.attendance_policy is not None,
                     has_office_hours=facts.office_hours_text is not None,
                     has_assignment_frequency=facts.assignment_frequency is not None,
+                    source_url=facts.source_url,
                 )
 
         for signal in text_analysis.extract_traits(text):
@@ -103,6 +109,7 @@ def _build_signals_for_professor(
                     polarity=signal.polarity,
                     recency_weight=recency,
                     mentions_both=mentions_course,
+                    source_url=result.url,
                 )
             )
             bucket = evidence_examples.setdefault(signal.trait, [])
@@ -117,13 +124,16 @@ def _build_signals_for_professor(
                 bucket.append(fact.description)
         # A public teaching-recognition mention is a small, real signal in
         # favor of teaching quality - nudge (never invent) the trait pool.
-        trait_observations.append(TraitObservation("organized", polarity=0.3, recency_weight=1.0, mentions_both=False))
+        trait_observations.append(
+            TraitObservation("organized", polarity=0.3, recency_weight=1.0, mentions_both=False, source_url=recognition[0].source_url)
+        )
 
     signals = ProfessorSignals(
         grades=grade_signals,
         trait_observations=trait_observations,
         syllabus=syllabus_signal,
         modality=modality,
+        modality_source_url=modality_source_url,
     )
     return signals, evidence_examples
 
@@ -173,7 +183,8 @@ def gather_profiles(
         modality = sections[0].modality
 
         signals, evidence_examples = _build_signals_for_professor(
-            display_name, subject, course_number, course_title, prof_grade_rows, modality, max_queries
+            display_name, subject, course_number, course_title, prof_grade_rows, modality,
+            sections[0].source_url, max_queries,
         )
         profiles.append(
             ProfessorProfile(

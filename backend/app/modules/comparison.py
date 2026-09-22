@@ -23,6 +23,7 @@ class ComparisonRow:
     data_confidence: float
     confidence_label: str
     course_gpa: float | None
+    grade_sources: list[str]
     grade_sample_size: int
     withdrawal_rate: float | None
     sections_taught: int
@@ -61,6 +62,7 @@ def build_comparison_row(profile: ProfessorProfile, recommendation: ProfessorRec
     course_gpa = None
     if grades and total_n:
         course_gpa = round(sum(g.gpa * g.sample_size for g in grades) / total_n, 3)
+    grade_sources = sorted({g.source_url for g in grades if g.source_url})
 
     syllabus = profile.signals.syllabus
     assessment_structure = {}
@@ -83,6 +85,7 @@ def build_comparison_row(profile: ProfessorProfile, recommendation: ProfessorRec
         data_confidence=recommendation.data_confidence,
         confidence_label=recommendation.confidence_label,
         course_gpa=course_gpa,
+        grade_sources=grade_sources,
         grade_sample_size=total_n,
         withdrawal_rate=profile.section_meta.get("withdrawal_rate"),
         sections_taught=len(grades),
