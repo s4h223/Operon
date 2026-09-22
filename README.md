@@ -1,97 +1,75 @@
-# SAT Desmos Tutor
+# Operon
 
-A specialized SAT Math tutor that answers one question: **what's the fastest
-way to solve this exact problem using Desmos?** It does not behave like a
-generic AI math solver — it classifies the problem, pulls verified Desmos
-strategies from a knowledge base, and tells the student exactly what to type
-into the calculator, what feature of the graph/table to look at, and how to
-read off the answer.
+A full-stack financial operations intelligence platform. Companies upload raw CSV exports from
+accounting, ERP, banking, invoicing, or payment systems; Operon normalizes the inconsistent
+column names/formats into a standard internal schema, then analyzes working capital and cash
+flow, predicts late payments, forecasts cash flow, and flags duplicate/anomalous transactions.
+
+No paid APIs or API keys required anywhere in the stack.
 
 ## Stack
 
-- **Next.js 16 (App Router) + TypeScript + React** — frontend and backend in
-  one project.
-- **Tailwind CSS 4** — styling.
-- **Anthropic Claude API** (`@anthropic-ai/sdk`) — called only from the server
-  (`app/api/solve/route.ts`), so the API key is never exposed to the browser.
-- **Zod** — validates the request in and the structured response out.
+- **Frontend**: Next.js + TypeScript (`frontend/`)
+- **Backend**: Python + FastAPI (`backend/`)
+- **Analytical storage**: DuckDB
+- **Data processing / ML**: pandas, NumPy, scikit-learn (logistic regression / random forest for
+  late-payment prediction, Isolation Forest for anomaly detection)
 
-## Getting started
+## Core capabilities
+
+1. **CSV ingestion & schema mapping** — upload `customers.csv`, `invoices.csv`, `payments.csv`,
+   `vendors.csv`, `expenses.csv`, or `transactions.csv` from any system; Operon auto-suggests how
+   inconsistent column names (`invoice_total`, `gross_invoice_value`, `amount`, …) map onto the
+   standard schema, and you review/adjust before loading.
+2. **AR / AP analytics** — total & overdue AR/AP, aging buckets, DSO, DPO, cash conversion
+   cycle, customer/vendor concentration, historical payment behavior, outstanding balances,
+   upcoming obligations.
+3. **Late-payment prediction** — a random forest / logistic regression trained on each
+   customer's historical payment behavior scores the probability that an outstanding invoice
+   will be paid late, with a heuristic expected payment date and feature-importance explainability.
+4. **30/60/90-day cash flow forecasting** — projects inflows, outflows, and cash balance from
+   invoice/bill due dates, each counterparty's historical payment delay, and detected recurring
+   vendor expenses.
+5. **Duplicate & anomaly detection** — deterministic duplicate checks (vendor/account + amount +
+   date + description similarity) plus an Isolation Forest flagging statistically unusual
+   expenses/transactions, each with a human-readable reason.
+
+## Quickstart
 
 ```bash
+# Backend
+cd backend
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000 &
+
+# Frontend
+cd ../frontend
 npm install
-cp .env.example .env.local   # then fill in ANTHROPIC_API_KEY
+cp .env.local.example .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), paste an SAT math
-problem, and submit.
+Open http://localhost:3000, go to **Upload & Mapping**, and upload a CSV — or generate a
+realistic synthetic dataset first:
 
-## How a request flows
+```bash
+cd backend
+python3 scripts/generate_synthetic_data.py --customers 300 --vendors 150 \
+  --invoices 8000 --expenses 4000 --transactions 6000
+# then upload backend/data/synthetic/*.csv through the UI, or run the
+# in-process pipeline test (see backend/README.md) for a scripted end-to-end run.
+```
 
-1. **Frontend** (`components/SolverForm.tsx`) posts `{ problem }` to
-   `POST /api/solve`.
-2. **Retrieval** (`lib/retrieval.ts`) heuristically classifies the problem
-   into one of twelve SAT categories (linear equations, systems, quadratics,
-   functions, regressions, statistics, circles, exponentials, roots,
-   intersections, tables, maxima/minima) and pulls the most relevant
-   strategies out of the knowledge base by keyword match. This keeps only a
-   handful of relevant strategies in Claude's context instead of the whole
-   corpus — the same shape a real vector-search retrieval step would have.
-3. **Prompting** (`lib/systemPrompt.ts`) builds a system prompt that tells
-   Claude it's a Desmos-shortcut tutor (not a generic solver) and interpolates
-   the retrieved strategies — problem type, when to use it, exact Desmos
-   syntax, limitations, and a verified worked example.
-4. **Structured generation** (`app/api/solve/route.ts`) calls
-   `client.messages.parse()` with `output_config.format` set to a Zod schema
-   (`lib/schema.ts`), so Claude's response is constrained to:
-   `problemType`, `strategy`, `desmosInputs`, `steps`, `answer`,
-   `explanation`, `desmosApplicable`.
-5. **Validation** — the parsed response is re-validated with
-   `SolveResponseSchema.safeParse()`. Any failure (invalid shape, refusal,
-   rate limit, auth error, missing API key, network error) returns a
-   well-formed fallback response (`lib/fallback.ts`) instead of a raw error,
-   so the frontend never has to special-case failure modes.
-6. **Frontend** renders the strategy, the literal strings to type into
-   Desmos, step-by-step UI actions, the answer, and a short explanation
-   (`components/ResultCard.tsx`) — plus a live embedded Desmos calculator
-   (`components/DesmosGraph.tsx`) preloaded with the returned expressions,
-   where the returned inputs are literal graphable expressions.
+## Repository layout
 
-## Knowledge base (`lib/knowledgeBase.ts`)
+```
+backend/   FastAPI + DuckDB service — see backend/README.md
+frontend/  Next.js + TypeScript client — see frontend/README.md
+```
 
-Currently a hand-verified, hard-coded array of strategies — one entry per
-Desmos technique (intersection-solving, root-finding, regression, tables,
-sliders, stats functions, etc.), each with: when to use it, exact Desmos
-syntax, ordered UI steps, known limitations, and a verified worked example.
-`lib/retrieval.ts` is the only file that reads from it, so it's a drop-in
-replacement point.
-
-## Roadmap (as designed, not yet built)
-
-- **Image input**: accept a screenshot of a problem, run it through a
-  vision-capable Claude call to extract/normalize the problem text, then feed
-  that into the exact same `/api/solve` pipeline unchanged.
-- **Real RAG**: replace the lexical scoring in `lib/retrieval.ts` with an
-  embeddings index (e.g. store the knowledge base in a vector DB) without
-  touching any caller — `getStrategiesForProblem()` is the seam.
-- **Benchmark dataset**: a growing set of real SAT-style questions paired
-  with manually verified optimal Desmos solutions, used to evaluate generated
-  responses for correct syntax, correct answers, correct strategy selection,
-  and whether the Desmos approach actually beats solving it by hand.
-- **Deeper Desmos embedding**: the current `DesmosGraph` component already
-  preloads graphable `desmosInputs` into a live embedded calculator; this can
-  be extended to also preload tables/regressions and sliders once the
-  knowledge base's non-graph strategies carry structured (not just
-  human-readable) setup data.
-
-## Environment variables
-
-See `.env.example`:
-
-- `ANTHROPIC_API_KEY` (required, server-only)
-- `ANTHROPIC_SOLVE_MODEL` (optional, defaults to `claude-opus-5`)
-- `NEXT_PUBLIC_DESMOS_API_KEY` (optional, defaults to Desmos's public `demo`
-  key — register your own at
-  [desmos.com/api](https://www.desmos.com/api/v1.11/docs/index.html) before
-  shipping to real users)
+Each app is self-contained (own dependencies, own README); they talk to each other only over
+HTTP. Authentication and multi-company workspaces are out of scope for this MVP, but the schema
+(every table keyed by entity id, nothing globally singleton) and the API (stateless, all
+filtering by explicit params) are structured so a `workspace_id`/auth layer can be added without
+a redesign.
