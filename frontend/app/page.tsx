@@ -141,7 +141,13 @@ export default function Home() {
         setSemestersReady(true);
         setStep("semester");
       })
-      .catch(() => setErrorFatal(BACKEND_UNREACHABLE));
+      .catch((err) => {
+        // Surface the real reason. A generic "is it running?" hides the
+        // difference between the server being down, CORS rejecting the
+        // origin, and the request succeeding with a bad status - which are
+        // three completely different fixes.
+        setErrorFatal(`${BACKEND_UNREACHABLE}\n\nDetails: ${err?.message ?? String(err)}`);
+      });
   }
 
   function setErrorFatal(msg: string) {
@@ -355,9 +361,17 @@ export default function Home() {
   if (step === "error") {
     return (
       <Shell>
-        <div className="max-w-md text-center">
-          <p className="mb-4" style={{ color: "var(--danger)" }}>
+        <div className="max-w-xl text-center">
+          <p className="mb-4 whitespace-pre-line" style={{ color: "var(--danger)" }}>
             {errorMessage}
+          </p>
+          <p className="mb-6 text-base" style={{ color: "var(--text-muted)" }}>
+            Check that the backend terminal shows{" "}
+            <code>Uvicorn running on http://127.0.0.1:8000</code>, then open{" "}
+            <a href="http://localhost:8000/api/health" target="_blank" rel="noreferrer" className="underline">
+              localhost:8000/api/health
+            </a>{" "}
+            in a new tab - it should print {"{"}&quot;status&quot;:&quot;ok&quot;{"}"}.
           </p>
           <button className="btn-secondary" onClick={() => window.location.reload()}>
             Start over
