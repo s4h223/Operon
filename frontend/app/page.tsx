@@ -126,6 +126,22 @@ export default function Home() {
       .catch(() => undefined);
   }, []);
 
+  // Arriving at /?start=1 means the landing link was followed without React
+  // having hydrated (so its onClick never ran). Honour that intent now.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("start")) {
+      window.history.replaceState(null, "", "/");
+      setStep((current) => (current === "landing" ? "loading_semesters" : current));
+    }
+  }, []);
+
+  // Drive the ?start=1 path to completion once semesters land.
+  useEffect(() => {
+    if (step === "loading_semesters" && semestersReady) {
+      setStep("semester");
+    }
+  }, [step, semestersReady]);
+
   function handleGetStarted() {
     if (semestersReady) {
       setStep("semester");
@@ -298,9 +314,23 @@ export default function Home() {
             <span className="gradient-text">not just the class.</span>
           </h1>
 
-          <button className="btn-primary text-xl" style={{ padding: "1.1rem 3rem" }} onClick={handleGetStarted}>
+          {/* A real link, not a button: an <a> navigates using plain HTML
+              even if React hasn't hydrated, so this can never be a dead
+              control. The full page load it triggers also re-fetches the
+              document, which clears a stale cached shell left over from a
+              previous dev-server run. */}
+          <a
+            className="btn-primary text-xl"
+            style={{ padding: "1.1rem 3rem", display: "inline-block", textDecoration: "none" }}
+            href="/?start=1"
+            onClick={(e) => {
+              // Hydrated: skip the reload and just advance.
+              e.preventDefault();
+              handleGetStarted();
+            }}
+          >
             Find my professor
-          </button>
+          </a>
         </div>
       </main>
     );
