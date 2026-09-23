@@ -113,6 +113,11 @@ class ComponentScore:
     # mention counts...). `explanations.py` builds student-facing sentences
     # from these; `note` is too terse and leaks internal vocabulary.
     detail: dict = field(default_factory=dict)
+    # False when this component could never have been scored for THIS
+    # student - they stated no preference for it to be matched against, so
+    # there is nothing to know. That is not a gap in what we found out about
+    # the professor, and `confidence.py` must not count it as one.
+    applicable: bool = True
 
 
 @dataclass
@@ -185,7 +190,12 @@ def score_teaching_experience(observations: list[TraitObservation]) -> Component
     n = len(relevant)
     shrunk = shrink_toward_prior(observed, n, prior=0.5, k=6)
 
-    confidence = _clamp01(min(n, 12) / 12)
+    # Saturation points below are tuned to how much public discussion
+    # actually exists per professor. Demanding a dozen distinct mentions
+    # before trusting a signal meant realistic evidence always read as
+    # low-confidence. Shrinkage toward the prior still protects the SCORE
+    # from small samples; this only governs the confidence we report.
+    confidence = _clamp01(min(n, 8) / 8)
     return ComponentScore(
         "teaching_experience", round(shrunk, 4), n, round(confidence, 4),
         f"Based on {n} student-discussion mention(s) of teaching quality.",
@@ -217,7 +227,7 @@ def _workload_intensity(observations: list[TraitObservation], syllabus: Optional
 
 def score_workload_fit(observations: list[TraitObservation], syllabus: Optional[SyllabusSignal], preference: Optional[str]) -> ComponentScore:
     if preference is None:
-        return ComponentScore("workload_fit", None, 0, 0.0, "Student had no workload preference to fit against.")
+        return ComponentScore("workload_fit", None, 0, 0.0, "Student had no workload preference to fit against.", applicable=False)
 
     result = _workload_intensity(observations, syllabus)
     if result is None:
@@ -231,7 +241,7 @@ def score_workload_fit(observations: list[TraitObservation], syllabus: Optional[
     else:  # moderate
         fit = 1 - abs(intensity - 0.5) * 2
 
-    confidence = _clamp01(min(n, 8) / 8)
+    confidence = _clamp01(min(n, 5) / 5)
     relevant = [o for o in observations if o.trait in WORKLOAD_TRAITS]
     sources = _distinct_sources(*(o.source_url for o in relevant))
     if syllabus and syllabus.has_assignment_frequency and syllabus.source_url:
@@ -246,7 +256,7 @@ def score_workload_fit(observations: list[TraitObservation], syllabus: Optional[
 
 def score_assessment_fit(syllabus: Optional[SyllabusSignal], preference: Optional[str]) -> ComponentScore:
     if preference is None:
-        return ComponentScore("assessment_fit", None, 0, 0.0, "Student had no assessment-style preference.")
+        return ComponentScore("assessment_fit", None, 0, 0.0, "Student had no assessment-style preference.", applicable=False)
     if syllabus is None or all(w is None for w in (syllabus.exam_weight, syllabus.homework_weight, syllabus.project_weight)):
         return ComponentScore("assessment_fit", None, 0, 0.0, "No syllabus grading breakdown available.")
 
@@ -296,7 +306,7 @@ def score_structure_fit(
     attendance_preference: Optional[str],
 ) -> ComponentScore:
     if structure_preference is None and attendance_preference is None:
-        return ComponentScore("structure_fit", None, 0, 0.0, "No structure/attendance preference to fit against.")
+        return ComponentScore("structure_fit", None, 0, 0.0, "No structure/attendance preference to fit against.", applicable=False)
 
     org_signals = [o for o in observations if o.trait == "organized"]
     attendance_signals = [o for o in observations if o.trait == "attendance_heavy"]
@@ -341,7 +351,7 @@ def score_structure_fit(
         return ComponentScore("structure_fit", None, 0, 0.0, "No structure/attendance evidence available.")
 
     fit = sum(parts) / len(parts)
-    confidence = _clamp01(min(n, 6) / 6) if n else 0.4
+    confidence = _clamp01(min(n, 4) / 4) if n else 0.4
     return ComponentScore(
         "structure_fit", round(fit, 4), n, round(confidence, 4), "Blended structure/attendance signal vs preference.",
         sources=_distinct_sources(*sources),
@@ -370,7 +380,7 @@ def score_support_fit(observations: list[TraitObservation], syllabus: Optional[S
         observed = _clamp01(observed + 0.05)
 
     shrunk = shrink_toward_prior(observed, n, prior=0.5, k=5)
-    confidence = _clamp01(min(n, 8) / 8) if n else 0.3
+    confidence = _clamp01(min(n, 5) / 5) if n else 0.3
     sources = _distinct_sources(*(o.source_url for o in relevant))
     if syllabus and syllabus.has_office_hours and syllabus.source_url:
         sources = _distinct_sources(*sources, syllabus.source_url)
@@ -385,7 +395,7 @@ def score_schedule_modality_fit(
     modality: Optional[str], modality_preference: Optional[str], source_url: Optional[str] = None
 ) -> ComponentScore:
     if modality_preference is None:
-        return ComponentScore("schedule_modality_fit", None, 0, 0.0, "No modality preference given.")
+        return ComponentScore("schedule_modality_fit", None, 0, 0.0, "No modality preference given.", applicable=False)
     if modality is None:
         return ComponentScore("schedule_modality_fit", None, 0, 0.0, "Section modality unknown.")
     fit = 1.0 if modality == modality_preference else (0.5 if modality == "hybrid" else 0.0)

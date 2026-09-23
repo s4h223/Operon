@@ -47,6 +47,8 @@ body {
 
 body > main {
   flex: 1 0 auto;
+  position: relative;
+  z-index: 1; /* above the fixed .page-backdrop / shapes */
 }
 
 .gradient-text {
@@ -88,21 +90,51 @@ body > main {
 }
 
 
-/* --- landing --- */
+/* --- start-over button --- */
 
-.landing-main {
-  position: relative;
-  overflow: hidden; /* keeps the drifting shapes from creating scrollbars */
+.home-button {
+  position: fixed;
+  top: 1.25rem;
+  left: 1.25rem;
+  z-index: 20; /* above the backdrop and all page content */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.9rem;
+  height: 2.9rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.home-button:hover {
+  color: var(--text);
+  border-color: var(--accent-end);
+  transform: translateY(-1px);
+}
+
+/* --- shared page backdrop (every screen) --- */
+
+/* Fixed behind all content, so the gradient and drifting shapes are the
+   same on every step rather than only the landing page. Out of flow, so it
+   can't affect layout or create scrollbars. */
+.page-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
   background:
     radial-gradient(ellipse 80% 55% at 50% 0%, rgba(91, 127, 232, 0.16), transparent 60%),
     radial-gradient(ellipse 60% 50% at 15% 100%, rgba(179, 163, 105, 0.09), transparent 65%),
     linear-gradient(175deg, #0f1018 0%, var(--bg) 45%, #0a0a12 100%);
 }
 
-/* A soft accent bloom behind the hero, so the landing page isn't a flat
-   black rectangle. Purely decorative and non-interactive. */
+/* A soft accent bloom so no screen is a flat black rectangle. */
 .landing-glow {
-  position: absolute;
+  position: fixed;
   top: 30%;
   left: 50%;
   width: min(900px, 120vw);
@@ -113,14 +145,15 @@ body > main {
   z-index: 0;
 }
 
-/* Slow-drifting geometry behind the hero. Decorative only: aria-hidden in
-   the markup, pointer-events off, and motion removed for anyone who asks
-   for reduced motion. */
+/* Slow-drifting geometry behind the content. Decorative only: aria-hidden
+   in the markup, pointer-events off, and motion removed for anyone who
+   asks for reduced motion. */
 .landing-shapes {
-  position: absolute;
+  position: fixed;   /* spans the viewport on every screen, scroll or not */
   inset: 0;
   pointer-events: none;
   z-index: 0;
+  overflow: hidden;
 }
 
 .landing-shapes span {

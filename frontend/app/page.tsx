@@ -76,7 +76,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     // No min-height here: <body> is the full-height flex column, so this
     // grows to fill whatever's left above the GT mark at the page bottom.
-    <main className="flex flex-col items-center px-6 pt-14 pb-10" style={{ background: "var(--bg)" }}>
+    <main className="flex flex-col items-center px-6 pt-14 pb-10">
       <div className="mb-14">
         <Logo height={120} />
       </div>
@@ -294,16 +294,8 @@ export default function Home() {
   if (step === "landing") {
     return (
       <main
-        className="landing-main flex flex-col items-center justify-center text-center px-6 py-16"
-        style={{ background: "var(--bg)" }}
+        className="flex flex-col items-center justify-center text-center px-6 py-16"
       >
-        <div className="landing-glow" aria-hidden="true" />
-        <div className="landing-shapes" aria-hidden="true">
-          <span />
-          <span />
-          <span />
-          <span />
-        </div>
         <div className="relative flex flex-col items-center gap-8" style={{ maxWidth: "40rem" }}>
           <Logo height={190} />
 
@@ -358,7 +350,6 @@ export default function Home() {
     return (
       <main
         className="flex flex-col items-center justify-center gap-10 px-6 py-10"
-        style={{ background: "var(--bg)" }}
       >
         <Logo height={120} />
         <div className="spinner" />

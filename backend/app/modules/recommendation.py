@@ -49,7 +49,7 @@ class RecommendationResult:
 
 def evaluate_professor(profile: ProfessorProfile, preferences: Preferences) -> ProfessorRecommendation:
     scoring_result = compute_personal_fit(profile.signals, preferences)
-    data_confidence = compute_data_confidence(scoring_result.components)
+    data_confidence = compute_data_confidence(scoring_result.components, scoring_result.weights_used)
     explanation = generate_explanation(scoring_result, profile.evidence_examples, preferences=preferences)
     return ProfessorRecommendation(
         professor_key=profile.professor_key,
