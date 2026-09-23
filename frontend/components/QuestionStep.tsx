@@ -37,7 +37,7 @@ function RateQuestion({
                 {opt.description}
               </div>
             )}
-            <div className="flex gap-2 flex-wrap" role="group" aria-label={opt.label}>
+            <div className="flex gap-2 flex-wrap justify-center" role="group" aria-label={opt.label}>
               {scale.map((value) => {
                 const selected = ratings[opt.value] === value;
                 return (
@@ -99,7 +99,7 @@ export default function QuestionStep({
       <h2 className="text-4xl font-semibold mb-6">{question.text}</h2>
       <div className="flex flex-col gap-3">
         {question.options.map((opt) => (
-          <button key={opt.value} className="option-card text-left" onClick={() => onAnswer(opt.value)}>
+          <button key={opt.value} className="option-card" onClick={() => onAnswer(opt.value)}>
             {opt.label}
           </button>
         ))}

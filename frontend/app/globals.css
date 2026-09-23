@@ -34,6 +34,19 @@ body {
 
 body {
   margin: 0;
+  /* Column layout so the GT mark can sit at the end of the page in normal
+     flow: it lands at the bottom of the viewport on short pages and after
+     the content on long ones, instead of floating over the page as you
+     scroll. */
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  /* Every screen is centre-aligned. */
+  text-align: center;
+}
+
+body > main {
+  flex: 1 0 auto;
 }
 
 .gradient-text {
@@ -50,14 +63,14 @@ body {
 /* --- persistent GT marker --- */
 
 .gt-mark {
-  position: fixed;
-  bottom: 3.25rem; /* lifted off the very bottom edge */
-  left: 50%;
-  transform: translateX(-50%);
+  /* In normal flow at the end of <body>, not fixed - it belongs to the
+     bottom of the page rather than hovering above it while scrolling. */
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.3rem;
+  padding: 2.25rem 0 2rem;
   /* Full strength: the logo's navy outline sinks into the dark background
      when it's faded, which reads as dull rather than subtle. */
   opacity: 1;
@@ -74,21 +87,23 @@ body {
   width: auto;
 }
 
-/* On a short viewport the marker would collide with the content, so it
-   steps out of the way rather than overlapping it. */
-@media (max-height: 640px) {
-  .gt-mark {
-    display: none;
-  }
-}
 
 /* --- landing --- */
+
+.landing-main {
+  position: relative;
+  overflow: hidden; /* keeps the drifting shapes from creating scrollbars */
+  background:
+    radial-gradient(ellipse 80% 55% at 50% 0%, rgba(91, 127, 232, 0.16), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 15% 100%, rgba(179, 163, 105, 0.09), transparent 65%),
+    linear-gradient(175deg, #0f1018 0%, var(--bg) 45%, #0a0a12 100%);
+}
 
 /* A soft accent bloom behind the hero, so the landing page isn't a flat
    black rectangle. Purely decorative and non-interactive. */
 .landing-glow {
-  position: fixed;
-  top: 18%;
+  position: absolute;
+  top: 30%;
   left: 50%;
   width: min(900px, 120vw);
   height: min(900px, 120vw);
@@ -96,6 +111,82 @@ body {
   pointer-events: none;
   background: radial-gradient(circle, rgba(111, 143, 240, 0.17) 0%, rgba(111, 143, 240, 0.05) 45%, transparent 70%);
   z-index: 0;
+}
+
+/* Slow-drifting geometry behind the hero. Decorative only: aria-hidden in
+   the markup, pointer-events off, and motion removed for anyone who asks
+   for reduced motion. */
+.landing-shapes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.landing-shapes span {
+  position: absolute;
+  display: block;
+  border: 1.5px solid rgba(111, 143, 240, 0.22);
+  animation: drift 26s ease-in-out infinite;
+}
+
+.landing-shapes span:nth-child(1) {
+  width: 190px;
+  height: 190px;
+  top: 14%;
+  left: 12%;
+  border-radius: 28px;
+  transform: rotate(18deg);
+}
+
+.landing-shapes span:nth-child(2) {
+  width: 120px;
+  height: 120px;
+  top: 62%;
+  left: 78%;
+  border-radius: 50%;
+  border-color: rgba(179, 163, 105, 0.26);
+  animation-duration: 34s;
+  animation-delay: -6s;
+}
+
+.landing-shapes span:nth-child(3) {
+  width: 260px;
+  height: 260px;
+  top: 68%;
+  left: 6%;
+  border-radius: 50%;
+  border-color: rgba(111, 143, 240, 0.14);
+  animation-duration: 40s;
+  animation-delay: -14s;
+}
+
+.landing-shapes span:nth-child(4) {
+  width: 150px;
+  height: 150px;
+  top: 10%;
+  left: 80%;
+  border-radius: 24px;
+  border-color: rgba(179, 163, 105, 0.18);
+  animation-duration: 30s;
+  animation-delay: -20s;
+  transform: rotate(-12deg);
+}
+
+@keyframes drift {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -26px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-shapes span {
+    animation: none;
+  }
 }
 
 /* --- loading indicators --- */

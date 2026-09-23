@@ -9,7 +9,7 @@ function ConfidenceBadge({ label }: { label: string }) {
 
 function MatchScore({ value, featured }: { value: number; featured?: boolean }) {
   return (
-    <div className="text-right leading-none">
+    <div className="leading-none">
       <span className={`${featured ? "text-6xl" : "text-4xl"} font-bold gradient-text`}>{value.toFixed(0)}%</span>
       <div className={`${featured ? "text-base" : "text-sm"} mt-1`} style={{ color: "var(--text-muted)" }}>
         match
@@ -53,7 +53,7 @@ function ProfessorCard({
       {featured && (
         <div className="gradient-text font-semibold text-lg mb-3 uppercase tracking-wide">Best Match for You</div>
       )}
-      <div className="flex items-baseline justify-between gap-4">
+      <div className="flex flex-col items-center gap-2">
         <h3 className={`${featured ? "text-4xl" : "text-2xl"} font-semibold`}>
           {rank !== undefined && (
             <span style={{ color: "var(--text-muted)" }} className="mr-2">
@@ -72,7 +72,7 @@ function ProfessorCard({
       </div>
 
       {scored && (
-        <div className="flex items-center gap-2 mt-2 mb-4">
+        <div className="flex items-center justify-center gap-2 mt-2 mb-4">
           <ConfidenceBadge label={rec.confidence_label} />
         </div>
       )}
@@ -92,7 +92,7 @@ function ProfessorCard({
           >
             Why this fits
           </div>
-          <ul className={`list-disc pl-5 space-y-2 ${featured ? "text-lg" : "text-base"}`}>
+          <ul className={`space-y-2 ${featured ? "text-lg" : "text-base"}`}>
             {rec.reasons.map((r, i) => (
               <li key={i}>{r}</li>
             ))}
@@ -105,7 +105,7 @@ function ProfessorCard({
           <div className="text-base font-semibold mb-1" style={{ color: "var(--text-muted)" }}>
             Tradeoffs
           </div>
-          <ul className="list-disc pl-5 space-y-1 text-base" style={{ color: "var(--text-muted)" }}>
+          <ul className="space-y-1 text-base" style={{ color: "var(--text-muted)" }}>
             {rec.tradeoffs.map((r, i) => (
               <li key={i}>{r}</li>
             ))}
@@ -114,7 +114,7 @@ function ProfessorCard({
       )}
 
       {onCompareToggle && scored && (
-        <label className="flex items-center gap-2 mt-4 text-base cursor-pointer" style={{ color: "var(--text-muted)" }}>
+        <label className="flex items-center justify-center gap-2 mt-4 text-base cursor-pointer" style={{ color: "var(--text-muted)" }}>
           <input type="checkbox" checked={!!compareSelected} onChange={onCompareToggle} />
           Compare side by side
         </label>

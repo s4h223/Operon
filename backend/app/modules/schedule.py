@@ -162,12 +162,30 @@ def _meeting_info(rec: dict[str, Any]) -> tuple[Optional[str], Optional[str], Op
     return (days or None), meeting_time, (building or None)
 
 
-def _instructor_of(rec: dict[str, Any]) -> str:
+def _instructors_of(rec: dict[str, Any]) -> list[str]:
+    """Every instructor on the section, primary first.
+
+    A co-taught section lists several faculty. Keeping only the primary
+    silently hid the other instructors from the app entirely - they teach
+    the course, so they have to be recommendable.
+    """
     faculty = rec.get("faculty") or []
-    primary = next((f for f in faculty if f.get("primaryIndicator")), None)
-    chosen = primary or (faculty[0] if faculty else None)
-    name = (chosen or {}).get("displayName", "") or ""
-    return name.strip()
+    primary = [f for f in faculty if f.get("primaryIndicator")]
+    others = [f for f in faculty if not f.get("primaryIndicator")]
+
+    names: list[str] = []
+    for member in primary + others:
+        name = (member or {}).get("displayName", "") or ""
+        name = name.strip()
+        if name and name not in names:
+            names.append(name)
+    return names
+
+
+def _instructor_of(rec: dict[str, Any]) -> str:
+    """The section's primary instructor, or "" when none is listed."""
+    names = _instructors_of(rec)
+    return names[0] if names else ""
 
 
 def _modality_of(rec: dict[str, Any], building: Optional[str]) -> Optional[str]:
@@ -203,34 +221,37 @@ def _parse_sections(raw_json: str, term_code: str, subject: str, course_number: 
     for rec in records:
         crn = str(rec.get("courseReferenceNumber") or "")
         section_id = str(rec.get("sequenceNumber") or "")
-        instructor_raw = _instructor_of(rec)
         meeting_days, meeting_time, building = _meeting_info(rec)
         modality = _modality_of(rec, building)
         seats_capacity = rec.get("maximumEnrollment")
         seats_taken = rec.get("enrollment")
 
-        if not instructor_raw or instructor_raw.upper() in ("TBA", "STAFF"):
-            instructor_raw = instructor_raw or "TBA"
+        instructors = _instructors_of(rec) or ["TBA"]
 
-        sections.append(
-            SectionInfo(
-                term_code=term_code,
-                subject=subject,
-                course_number=course_number,
-                crn=crn,
-                section_id=section_id,
-                instructor_raw=instructor_raw,
-                professor_key=professor_key(instructor_raw) if instructor_raw not in ("TBA", "STAFF") else "",
-                professor_display=normalize_professor_name(instructor_raw) if instructor_raw not in ("TBA", "STAFF") else "TBA",
-                meeting_days=meeting_days,
-                meeting_time=meeting_time,
-                modality=modality,
-                seats_capacity=seats_capacity if isinstance(seats_capacity, int) else None,
-                seats_taken=seats_taken if isinstance(seats_taken, int) else None,
-                source_url=source_url,
-                retrieved_at=retrieved_at,
+        # A co-taught section produces one entry per instructor: they share
+        # the CRN because they genuinely share the section, and every one of
+        # them needs to be discoverable as someone teaching this course.
+        for instructor_raw in instructors:
+            is_placeholder = instructor_raw.upper() in ("TBA", "STAFF")
+            sections.append(
+                SectionInfo(
+                    term_code=term_code,
+                    subject=subject,
+                    course_number=course_number,
+                    crn=crn,
+                    section_id=section_id,
+                    instructor_raw=instructor_raw,
+                    professor_key="" if is_placeholder else professor_key(instructor_raw),
+                    professor_display="TBA" if is_placeholder else normalize_professor_name(instructor_raw),
+                    meeting_days=meeting_days,
+                    meeting_time=meeting_time,
+                    modality=modality,
+                    seats_capacity=seats_capacity if isinstance(seats_capacity, int) else None,
+                    seats_taken=seats_taken if isinstance(seats_taken, int) else None,
+                    source_url=source_url,
+                    retrieved_at=retrieved_at,
+                )
             )
-        )
     return sections
 
 

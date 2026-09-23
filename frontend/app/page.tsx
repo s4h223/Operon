@@ -33,7 +33,6 @@ type Step =
   | "course_confirm"
   | "loading_professors"
   | "scope"
-  | "professor_select"
   | "loading_questionnaire"
   | "question"
   | "loading_recommendation"
@@ -75,10 +74,9 @@ const BACKEND_UNREACHABLE = "Couldn't reach the FYVE backend. Is it running?";
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    // pb-32 keeps scrolling content clear of the fixed GT marker. It lives
-    // here rather than on <body> so the landing page stays exactly one
-    // viewport tall instead of always having a scrollbar.
-    <main className="min-h-screen flex flex-col items-center px-6 pt-14 pb-32" style={{ background: "var(--bg)" }}>
+    // No min-height here: <body> is the full-height flex column, so this
+    // grows to fill whatever's left above the GT mark at the page bottom.
+    <main className="flex flex-col items-center px-6 pt-14 pb-10" style={{ background: "var(--bg)" }}>
       <div className="mb-14">
         <Logo height={120} />
       </div>
@@ -100,7 +98,6 @@ export default function Home() {
 
   const [professors, setProfessors] = useState<ProfessorListing[]>([]);
   const [professorsReason, setProfessorsReason] = useState<string | undefined>();
-  const [selectedProfessorKeys, setSelectedProfessorKeys] = useState<string[]>([]);
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -236,10 +233,6 @@ export default function Home() {
     void proceedToQuestions(undefined);
   }
 
-  function handleScopeSelected() {
-    setStep("professor_select");
-  }
-
   function handleAnswer(value: string) {
     const q = questions[questionIndex];
     const updated = { ...preferences, [q.field]: value };
@@ -264,7 +257,7 @@ export default function Home() {
       setQuestionIndex(next);
     } else {
       setStep("loading_recommendation");
-      void runRecommendation(prefs, selectedProfessorKeys.length ? selectedProfessorKeys : undefined);
+      void runRecommendation(prefs, undefined);  // always every professor teaching the course
     }
   }
 
@@ -301,10 +294,16 @@ export default function Home() {
   if (step === "landing") {
     return (
       <main
-        className="min-h-screen flex flex-col items-center justify-center text-center px-6 py-16"
+        className="landing-main flex flex-col items-center justify-center text-center px-6 py-16"
         style={{ background: "var(--bg)" }}
       >
         <div className="landing-glow" aria-hidden="true" />
+        <div className="landing-shapes" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+          <span />
+        </div>
         <div className="relative flex flex-col items-center gap-8" style={{ maxWidth: "40rem" }}>
           <Logo height={190} />
 
@@ -358,7 +357,7 @@ export default function Home() {
     // instead of the logo being pinned to the top.
     return (
       <main
-        className="min-h-screen flex flex-col items-center justify-center gap-10 px-6 pt-10 pb-28"
+        className="flex flex-col items-center justify-center gap-10 px-6 py-10"
         style={{ background: "var(--bg)" }}
       >
         <Logo height={120} />
@@ -420,7 +419,7 @@ export default function Home() {
             {semesters.map((s) => (
               <button
                 key={s.term_code}
-                className="option-card text-left"
+                className="option-card"
                 onClick={() => {
                   setSelectedTerm(s.term_code);
                   setStep("course_search");
@@ -452,7 +451,7 @@ export default function Home() {
             {courseResults.map((c) => (
               <button
                 key={`${c.subject}${c.course_number}`}
-                className="option-card text-left"
+                className="option-card"
                 onClick={() => handleSelectCourse(c.subject, c.course_number)}
               >
                 <span className="font-semibold">
@@ -499,65 +498,52 @@ export default function Home() {
   }
 
   if (step === "scope") {
+    const courseLabel = confirmedCourse
+      ? `${confirmedCourse.subject} ${confirmedCourse.course_number}`
+      : "this course";
+
     return (
       <Shell>
-        <div className="w-full max-w-md">
-          <h2 className="text-4xl font-semibold mb-2">Should FYVE evaluate all professors, or only some?</h2>
+        <div className="w-full max-w-lg">
+          <h2 className="text-4xl font-semibold mb-3">
+            Found {professors.length} professor{professors.length === 1 ? "" : "s"} teaching {courseLabel}
+          </h2>
+          <p className="text-base mb-6" style={{ color: "var(--text-muted)" }}>
+            Does this look right?
+          </p>
+
           {professorsReason && (
             <p className="text-base mb-4" style={{ color: "var(--danger)" }}>
               {professorsReason}
             </p>
           )}
-          {professors.length > 0 && (
-            <p className="text-base mb-4" style={{ color: "var(--text-muted)" }}>
-              {professors.length} professor(s) found teaching this course this term.
-            </p>
-          )}
-          <div className="flex flex-col gap-3">
-            <button className="option-card text-left" onClick={handleScopeAll} disabled={professors.length === 0}>
-              Evaluate all available professors
-            </button>
-            <button className="option-card text-left" onClick={handleScopeSelected} disabled={professors.length === 0}>
-              Let me choose which professors
-            </button>
-          </div>
-        </div>
-      </Shell>
-    );
-  }
 
-  if (step === "professor_select") {
-    return (
-      <Shell>
-        <div className="w-full max-w-md">
-          <h2 className="text-4xl font-semibold mb-6">Which professors should FYVE evaluate?</h2>
-          <div className="flex flex-col gap-2">
-            {professors.map((p) => (
-              <label key={p.professor_key} className="option-card flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={selectedProfessorKeys.includes(p.professor_key)}
-                  onChange={() =>
-                    setSelectedProfessorKeys((prev) =>
-                      prev.includes(p.professor_key) ? prev.filter((k) => k !== p.professor_key) : [...prev, p.professor_key]
-                    )
-                  }
-                />
-                {p.display_name}
-              </label>
-            ))}
-          </div>
-          <button
-            className="btn-primary mt-6"
-            disabled={selectedProfessorKeys.length === 0}
-            onClick={() => proceedToQuestions(selectedProfessorKeys)}
-          >
-            Continue
+          {professors.length > 0 && (
+            <ul className="flex flex-col gap-3 mb-8">
+              {professors.map((p) => (
+                <li key={p.professor_key} className="option-card" style={{ cursor: "default" }}>
+                  <div className="text-xl font-semibold">{p.display_name}</div>
+                  <div className="text-base mt-1" style={{ color: "var(--text-muted)" }}>
+                    {p.sections.length} section{p.sections.length === 1 ? "" : "s"}
+                    {p.sections[0]?.meeting_days ? ` · ${p.sections[0].meeting_days}` : ""}
+                    {p.sections[0]?.meeting_time ? ` ${p.sections[0].meeting_time}` : ""}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <button className="btn-primary w-full" onClick={handleScopeAll} disabled={professors.length === 0}>
+            Yes, evaluate {professors.length === 1 ? "them" : "all of them"}
+          </button>
+          <button className="btn-secondary mt-3 w-full text-base" onClick={() => setStep("course_search")}>
+            No, pick a different course
           </button>
         </div>
       </Shell>
     );
   }
+
 
   if (step === "question" && questions[questionIndex]) {
     return (

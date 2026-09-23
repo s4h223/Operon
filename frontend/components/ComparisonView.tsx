@@ -39,9 +39,9 @@ export default function ComparisonView({ rows, onBack }: { rows: ComparisonRow[]
       <table className="w-full text-base border-collapse">
         <thead>
           <tr>
-            <th className="text-left p-3" style={{ color: "var(--text-muted)" }}></th>
+            <th className="text-center p-3" style={{ color: "var(--text-muted)" }}></th>
             {rows.map((r) => (
-              <th key={r.professor_key} className="text-left p-3 border-b" style={{ borderColor: "var(--border)" }}>
+              <th key={r.professor_key} className="text-center p-3 border-b" style={{ borderColor: "var(--border)" }}>
                 {r.display_name}
               </th>
             ))}

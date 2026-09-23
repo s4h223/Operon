@@ -88,3 +88,42 @@ def test_get_sections_for_course_handles_blocked_gracefully():
     assert result.status == "unavailable"
     assert result.sections == []
     assert result.reason
+
+
+def test_co_taught_section_surfaces_every_instructor():
+    # A section with two faculty used to yield only the primary, so the
+    # second professor was invisible in the app despite teaching the course.
+    import json as _json
+
+    payload = _json.dumps({
+        "data": [{
+            "courseReferenceNumber": "99999",
+            "sequenceNumber": "A",
+            "faculty": [
+                {"displayName": "Ghosh, Aishik", "primaryIndicator": True},
+                {"displayName": "Kearse, Iretta", "primaryIndicator": False},
+            ],
+            "meetingsFaculty": [],
+            "maximumEnrollment": 100,
+            "enrollment": 90,
+        }]
+    })
+    sections = schedule_mod._parse_sections(payload, "202702", "CS", "1301", "http://src.test")
+
+    names = {s.professor_display for s in sections}
+    assert names == {"Aishik Ghosh", "Iretta Kearse"}
+    # Both share the one real CRN - they co-teach the same section.
+    assert {s.crn for s in sections} == {"99999"}
+    assert all(s.professor_key for s in sections)
+
+
+def test_section_with_no_faculty_listed_is_tba_not_dropped():
+    import json as _json
+
+    payload = _json.dumps({
+        "data": [{"courseReferenceNumber": "12121", "sequenceNumber": "B", "faculty": [], "meetingsFaculty": []}]
+    })
+    sections = schedule_mod._parse_sections(payload, "202702", "CS", "1301", "http://src.test")
+    assert len(sections) == 1
+    assert sections[0].professor_display == "TBA"
+    assert sections[0].professor_key == ""  # never a fabricated professor
